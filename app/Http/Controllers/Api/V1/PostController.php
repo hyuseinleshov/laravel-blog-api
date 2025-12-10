@@ -9,7 +9,7 @@ use App\Http\Resources\PostCollection;
 use App\Http\Resources\PostResource;
 use App\Models\Post;
 use App\Services\PostService;
-use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class PostController extends Controller
 {
@@ -20,47 +20,29 @@ class PostController extends Controller
         $this->postService = $postService;
     }
 
-    /**
-     * Display a listing of the resource.
-     */
     public function index(): PostCollection
     {
-        $posts = $this->postService->getAllPosts();
-        return new PostCollection($posts);
+        return new PostCollection($this->postService->getAllPosts());
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StorePostRequest $request)
+    public function store(StorePostRequest $request): PostResource
     {
         $post = $this->postService->createPost($request->validated());
-        return (new PostResource($post))
-            ->response()
-            ->setStatusCode(201);
+        return new PostResource($post);
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Post $post): PostResource
     {
         return new PostResource($post->load(['author', 'tags']));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(UpdatePostRequest $request, Post $post)
+    public function update(UpdatePostRequest $request, Post $post): PostResource
     {
         $post = $this->postService->updatePost($post, $request->validated());
         return new PostResource($post);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Post $post)
+    public function destroy(Post $post): Response
     {
         $this->postService->deletePost($post);
         return response()->noContent();
