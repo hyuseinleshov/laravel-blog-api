@@ -18,7 +18,7 @@ class PostResource extends JsonResource
                 'id' => $this->author->id,
                 'name' => $this->author->name,
             ],
-            'tags' => $this->tags->map(fn($tag) => [
+            'tags' => $this->tags->map(fn ($tag) => [
                 'id' => $tag->id,
                 'name' => $tag->name,
             ]),

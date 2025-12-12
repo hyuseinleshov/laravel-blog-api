@@ -42,7 +42,7 @@ test('can get single post', function () {
         'data' => [
             'id' => $post->id,
             'title' => $post->title,
-        ]
+        ],
     ]);
 });
 

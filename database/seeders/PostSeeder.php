@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Enums\PostStatus;
 use App\Models\Post;
 use App\Models\Tag;
 use App\Models\User;
-use App\Enums\PostStatus;
 use Illuminate\Database\Seeder;
 
 class PostSeeder extends Seeder

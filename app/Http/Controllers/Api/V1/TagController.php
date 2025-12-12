@@ -20,6 +20,7 @@ class TagController extends Controller
     public function store(StoreTagRequest $request): TagResource
     {
         $tag = Tag::create($request->validated());
+
         return new TagResource($tag);
     }
 
@@ -31,12 +32,14 @@ class TagController extends Controller
     public function update(UpdateTagRequest $request, Tag $tag): TagResource
     {
         $tag->update($request->validated());
+
         return new TagResource($tag);
     }
 
     public function destroy(Tag $tag): Response
     {
         $tag->delete();
+
         return response()->noContent();
     }
 }
