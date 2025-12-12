@@ -75,3 +75,38 @@ test('can delete post', function () {
         'id' => $post->id,
     ]);
 });
+
+test('cannot create post without required fields', function () {
+    $response = $this->postJson('/api/v1/posts', []);
+
+    $response->assertStatus(422);
+    $response->assertJsonValidationErrors(['title', 'status', 'user_id']);
+});
+
+test('cannot create post with title too short', function () {
+    $user = User::factory()->create();
+
+    $response = $this->postJson('/api/v1/posts', [
+        'title' => 'Short',
+        'content' => str_repeat('a', 200),
+        'status' => PostStatus::DRAFT->value,
+        'user_id' => $user->id,
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJsonValidationErrors(['title']);
+});
+
+test('cannot create post with content too short', function () {
+    $user = User::factory()->create();
+
+    $response = $this->postJson('/api/v1/posts', [
+        'title' => 'Testing with Pest',
+        'content' => 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+        'status' => PostStatus::PUBLISHED->value,
+        'user_id' => $user->id,
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJsonValidationErrors(['content']);
+});
