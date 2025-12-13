@@ -1,7 +1,3 @@
-# Blog API
-
-RESTful API for managing blog posts and tags, built with Laravel 12.
-
 ## Overview
 
 This project demonstrates Laravel development practices including clean architecture, comprehensive testing, and meaningful application of design patterns. The API follows REST conventions and includes a Filament admin panel for easy resource management.
