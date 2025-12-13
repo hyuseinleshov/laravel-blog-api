@@ -23,9 +23,10 @@ class PostForm
                     ->options(PostStatus::class)
                     ->default('draft')
                     ->required(),
-                TextInput::make('user_id')
+                Select::make('user_id')
+                    ->relationship('author', 'name')
                     ->required()
-                    ->numeric(),
+                    ->searchable(),
                 Select::make('tags')
                     ->relationship('tags', 'name')
                     ->multiple()
