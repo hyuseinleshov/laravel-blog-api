@@ -10,18 +10,20 @@ use App\Http\Requests\UpdatePostRequest;
 use App\Http\Resources\PostCollection;
 use App\Http\Resources\PostResource;
 use App\Models\Post;
+use App\Queries\PostQuery;
 use Illuminate\Http\Response;
 
 class PostController extends Controller
 {
     public function __construct(
         private StorePostAction $storePostAction,
-        private UpdatePostAction $updatePostAction
+        private UpdatePostAction $updatePostAction,
+        private PostQuery $postQuery
     ) {}
 
     public function index(): PostCollection
     {
-        $posts = Post::with(['author', 'tags'])->get();
+        $posts = $this->postQuery->get();
 
         return new PostCollection($posts);
     }

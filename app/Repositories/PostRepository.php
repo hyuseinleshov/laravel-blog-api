@@ -3,15 +3,9 @@
 namespace App\Repositories;
 
 use App\Models\Post;
-use Illuminate\Database\Eloquent\Collection;
 
 class PostRepository
 {
-    public function all(): Collection
-    {
-        return Post::all();
-    }
-
     public function findById(int $id): ?Post
     {
         return Post::find($id);

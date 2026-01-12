@@ -8,18 +8,20 @@ use App\Http\Requests\UpdateTagRequest;
 use App\Http\Resources\TagCollection;
 use App\Http\Resources\TagResource;
 use App\Models\Tag;
+use App\Queries\TagQuery;
 use App\Repositories\TagRepository;
 use Illuminate\Http\Response;
 
 class TagController extends Controller
 {
     public function __construct(
-        private TagRepository $tagRepository
+        private TagRepository $tagRepository,
+        private TagQuery $tagQuery
     ) {}
 
     public function index(): TagCollection
     {
-        return new TagCollection($this->tagRepository->all());
+        return new TagCollection($this->tagQuery->get());
     }
 
     public function store(StoreTagRequest $request): TagResource

@@ -3,15 +3,9 @@
 namespace App\Repositories;
 
 use App\Models\Tag;
-use Illuminate\Database\Eloquent\Collection;
 
 class TagRepository
 {
-    public function all(): Collection
-    {
-        return Tag::all();
-    }
-
     public function findById(int $id): ?Tag
     {
         return Tag::find($id);
