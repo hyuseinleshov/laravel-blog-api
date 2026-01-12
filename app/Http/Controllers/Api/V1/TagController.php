@@ -8,18 +8,23 @@ use App\Http\Requests\UpdateTagRequest;
 use App\Http\Resources\TagCollection;
 use App\Http\Resources\TagResource;
 use App\Models\Tag;
+use App\Repositories\TagRepository;
 use Illuminate\Http\Response;
 
 class TagController extends Controller
 {
+    public function __construct(
+        private TagRepository $tagRepository
+    ) {}
+
     public function index(): TagCollection
     {
-        return new TagCollection(Tag::all());
+        return new TagCollection($this->tagRepository->all());
     }
 
     public function store(StoreTagRequest $request): TagResource
     {
-        $tag = Tag::create($request->validated());
+        $tag = $this->tagRepository->create($request->validated());
 
         return new TagResource($tag);
     }

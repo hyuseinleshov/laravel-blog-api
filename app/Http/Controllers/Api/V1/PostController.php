@@ -2,32 +2,33 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\StorePostAction;
+use App\Actions\UpdatePostAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePostRequest;
 use App\Http\Requests\UpdatePostRequest;
 use App\Http\Resources\PostCollection;
 use App\Http\Resources\PostResource;
 use App\Models\Post;
-use App\Services\PostService;
 use Illuminate\Http\Response;
 
 class PostController extends Controller
 {
-    protected PostService $postService;
-
-    public function __construct(PostService $postService)
-    {
-        $this->postService = $postService;
-    }
+    public function __construct(
+        private StorePostAction $storePostAction,
+        private UpdatePostAction $updatePostAction
+    ) {}
 
     public function index(): PostCollection
     {
-        return new PostCollection($this->postService->getAllPosts());
+        $posts = Post::with(['author', 'tags'])->get();
+
+        return new PostCollection($posts);
     }
 
     public function store(StorePostRequest $request): PostResource
     {
-        $post = $this->postService->createPost($request->validated());
+        $post = $this->storePostAction->execute($request->validated());
 
         return new PostResource($post);
     }
@@ -39,14 +40,14 @@ class PostController extends Controller
 
     public function update(UpdatePostRequest $request, Post $post): PostResource
     {
-        $post = $this->postService->updatePost($post, $request->validated());
+        $post = $this->updatePostAction->execute($post, $request->validated());
 
         return new PostResource($post);
     }
 
     public function destroy(Post $post): Response
     {
-        $this->postService->deletePost($post);
+        $post->delete();
 
         return response()->noContent();
     }
