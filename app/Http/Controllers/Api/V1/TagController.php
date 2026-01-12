@@ -36,11 +36,11 @@ class TagController extends Controller
         return new TagResource($tag);
     }
 
-    public function update(UpdateTagRequest $request, Tag $tag): TagResource
+    public function update(UpdateTagRequest $request, Tag $tag): Response
     {
         $tag->update($request->validated());
 
-        return new TagResource($tag);
+        return response()->noContent();
     }
 
     public function destroy(Tag $tag): Response

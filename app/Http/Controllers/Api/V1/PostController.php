@@ -40,11 +40,11 @@ class PostController extends Controller
         return new PostResource($post->load(['author', 'tags']));
     }
 
-    public function update(UpdatePostRequest $request, Post $post): PostResource
+    public function update(UpdatePostRequest $request, Post $post): Response
     {
-        $post = $this->updatePostAction->execute($post, $request->validated());
+        $this->updatePostAction->execute($post, $request->validated());
 
-        return new PostResource($post);
+        return response()->noContent();
     }
 
     public function destroy(Post $post): Response

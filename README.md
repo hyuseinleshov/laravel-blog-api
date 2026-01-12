@@ -143,6 +143,10 @@ Content-Type: application/json
 }
 ```
 
+**Response:** 204 No Content
+
+**Note:** Update endpoints return 204 No Content to avoid returning stale data. If you need the updated resource, issue a separate GET request to retrieve the current state from the database.
+
 #### Delete Post
 ```http
 DELETE /api/v1/posts/{id}
@@ -184,10 +188,16 @@ PUT /api/v1/tags/{id}
 Content-Type: application/json
 ```
 
+**Response:** 204 No Content
+
+**Note:** Update endpoints return 204 No Content to avoid returning stale data. If you need the updated resource, issue a separate GET request to retrieve the current state from the database.
+
 #### Delete Tag
 ```http
 DELETE /api/v1/tags/{id}
 ```
+
+**Response:** 204 No Content
 
 ## Admin Panel
 

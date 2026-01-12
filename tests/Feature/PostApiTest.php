@@ -26,6 +26,20 @@ test('can get all posts', function () {
     $response->assertStatus(200)
         ->assertJsonStructure([
             'data' => [
+                '*' => ['id', 'title', 'content', 'status', 'created_at', 'updated_at'],
+            ],
+        ])
+        ->assertJsonCount(3, 'data');
+});
+
+test('can get all posts with includes', function () {
+    Post::factory()->count(3)->create(['user_id' => $this->user->id]);
+
+    $response = $this->getJson('/api/v1/posts?include=author,tags');
+
+    $response->assertStatus(200)
+        ->assertJsonStructure([
+            'data' => [
                 '*' => ['id', 'title', 'content', 'status', 'author', 'tags', 'created_at', 'updated_at'],
             ],
         ])
@@ -81,14 +95,7 @@ test('can update post', function () {
 
     $response = $this->putJson("/api/v1/posts/{$post->id}", $updateData);
 
-    $response->assertStatus(200)
-        ->assertJson([
-            'data' => [
-                'id' => $post->id,
-                'title' => 'Updated Title',
-                'status' => PostStatus::ARCHIVED->value,
-            ],
-        ]);
+    $response->assertStatus(204);
 
     $this->assertDatabaseHas('posts', [
         'id' => $post->id,
