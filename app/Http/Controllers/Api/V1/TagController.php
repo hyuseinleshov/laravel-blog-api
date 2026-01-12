@@ -38,7 +38,7 @@ class TagController extends Controller
 
     public function update(UpdateTagRequest $request, Tag $tag): Response
     {
-        $tag->update($request->validated());
+        $this->tagRepository->update($tag, $request->validated());
 
         return response()->noContent();
     }

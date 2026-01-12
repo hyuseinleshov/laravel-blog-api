@@ -22,20 +22,66 @@ This project demonstrates Laravel development practices including clean architec
 
 ## Architectural Decisions
 
-### Service Layer Pattern (Posts)
-Posts use a dedicated service layer (`PostService`) because they contain business logic:
-- Creating posts with tag attachments
-- Updating posts and syncing tag relationships
-- Eager loading author and tags to prevent N+1 queries
+This project follows a clean architecture with clear separation of concerns:
 
-### Direct Model Access (Tags)
-Tags use direct Eloquent operations in the controller because they only require simple CRUD with no business logic. This follows the KISS principle - avoid unnecessary abstraction.
+### Repository/Action/Service Architecture
+
+**Repositories** (`app/Repositories/`)
+- Handle data access only (queries, CRUD operations)
+- No business logic or side effects
+- Example: `PostRepository`, `TagRepository`
+
+**Actions** (`app/Actions/`)
+- Contain business operations with side effects or multiple steps
+- Used when operations are more complex than simple CRUD
+- Example: `StorePostAction` (creates post + attaches tags), `UpdatePostAction` (updates post + syncs tags)
+
+**Services** (`app/Services/`)
+- Reserved for external integrations only (Stripe, email providers, etc.)
+- Currently empty - will be used for third-party API integrations in the future
+
+**When to use Actions vs. inline operations:**
+- **Use Actions**: Multi-step operations, side effects, event dispatching, complex business logic
+- **Keep inline**: Simple single-model operations with no side effects (e.g., `$tag->delete()`)
+
+### Query Builder Pattern
+
+Listing endpoints use **Spatie Query Builder** (`app/Queries/`) for consistent filtering, sorting, and relationship loading:
+
+**Example Usage:**
+```http
+# Filter posts by status
+GET /api/v1/posts?filter[status]=published
+
+# Search posts by partial title match
+GET /api/v1/posts?filter[title]=Laravel
+
+# Sort posts by title descending
+GET /api/v1/posts?sort=-title
+
+# Include relationships to avoid N+1 queries
+GET /api/v1/posts?include=author,tags
+
+# Combine multiple parameters
+GET /api/v1/posts?filter[status]=published&include=author&sort=-created_at
+```
+
+**Available filters:**
+- Posts: `status` (exact), `user_id` (exact), `title` (partial)
+- Tags: `name` (partial)
+
+**Available sorts:**
+- Posts: `created_at`, `updated_at`, `title` (prefix with `-` for descending)
+- Tags: `created_at`, `updated_at`, `name`
+
+**Available includes:**
+- Posts: `author`, `tags`
 
 ### Form Request Validation
 All input validation is handled through dedicated Form Request classes (`StorePostRequest`, `UpdatePostRequest`, etc.) to keep controllers clean and validation logic reusable.
 
 ### API Resources
-JSON responses use API Resource classes to decouple internal data structures from API responses and ensure consistent output formatting.
+JSON responses use API Resource classes to decouple internal data structures from API responses and ensure consistent output formatting. Nested resources use dedicated resource classes (e.g., `AuthorResource`, `TagResource`) with `whenLoaded()` for conditional relationship loading.
 
 ## Installation
 ```bash
@@ -246,13 +292,22 @@ The codebase follows Laravel coding standards enforced by Laravel Pint:
 ## Project Structure
 ```
 app/
+├── Actions/                       # Business operations with side effects
+│   ├── StorePostAction.php
+│   └── UpdatePostAction.php
 ├── Enums/PostStatus.php           # Post status enum
 ├── Http/
 │   ├── Controllers/Api/V1/        # API controllers
 │   ├── Requests/                  # Form request validation
 │   └── Resources/                 # API resource transformers
 ├── Models/                        # Eloquent models
-└── Services/PostService.php       # Business logic layer
+├── Queries/                       # Spatie Query Builder configurations
+│   ├── PostQuery.php
+│   └── TagQuery.php
+├── Repositories/                  # Data access layer
+│   ├── PostRepository.php
+│   └── TagRepository.php
+└── Services/                      # External integrations (empty for now)
 
 database/
 ├── factories/                     # Model factories for testing
@@ -260,14 +315,18 @@ database/
 └── seeders/                       # Database seeders
 
 tests/
-└── Feature/PostApiTest.php        # API feature tests
+└── Feature/                       # API feature tests
+    ├── PostApiTest.php
+    └── TagApiTest.php
 ```
 
 ## Design Patterns
-- **Repository Pattern**: Service layer for complex business logic
+- **Repository Pattern**: Data access layer for CRUD operations
+- **Action Pattern**: Business operations with side effects or multiple steps
+- **Query Builder Pattern**: Spatie Query Builder for filtering, sorting, and includes
 - **Form Request Validation**: Dedicated validation classes
-- **API Resources**: Consistent JSON transformation
-- **Eager Loading**: Prevents N+1 query problems
+- **API Resources**: Consistent JSON transformation with nested resource classes
+- **Eager Loading**: Conditional relationship loading with `whenLoaded()` to prevent N+1 queries
 - **Enum Types**: Type-safe status values
 - **Factory Pattern**: Test data generation
 - **Database Transactions**: RefreshDatabase in tests
