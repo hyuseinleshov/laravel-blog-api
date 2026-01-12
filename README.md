@@ -316,8 +316,7 @@ database/
 
 tests/
 └── Feature/                       # API feature tests
-    ├── PostApiTest.php
-    └── TagApiTest.php
+    └── PostApiTest.php
 ```
 
 ## Design Patterns
