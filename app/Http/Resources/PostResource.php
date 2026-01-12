@@ -13,15 +13,9 @@ class PostResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'content' => $this->content,
-            'status' => $this->status->value,
-            'author' => [
-                'id' => $this->author->id,
-                'name' => $this->author->name,
-            ],
-            'tags' => $this->tags->map(fn ($tag) => [
-                'id' => $tag->id,
-                'name' => $tag->name,
-            ]),
+            'status' => $this->status,
+            'author' => AuthorResource::make($this->whenLoaded('author')),
+            'tags' => TagResource::collection($this->whenLoaded('tags')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

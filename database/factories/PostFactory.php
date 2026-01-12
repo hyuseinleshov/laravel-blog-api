@@ -21,7 +21,7 @@ class PostFactory extends Factory
         return [
             'title' => fake()->sentence(10),
             'content' => fake()->paragraphs(3, true),
-            'status' => PostStatus::PUBLISHED->value,
+            'status' => PostStatus::PUBLISHED,
             'user_id' => User::factory(),
         ];
     }
