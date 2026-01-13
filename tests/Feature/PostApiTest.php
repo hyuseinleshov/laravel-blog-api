@@ -314,3 +314,217 @@ test('cannot specify different author_id when creating post', function () {
         'author_id' => $author->id,
     ]);
 });
+
+test('cannot create post with invalid status enum', function () {
+    $postData = validPostData(['status' => 'invalid_status']);
+
+    $response = $this->postJson('/api/v1/posts', $postData);
+
+    $response->assertStatus(422)
+        ->assertJsonValidationErrors(['status']);
+});
+
+test('cannot create post with title exceeding max length', function () {
+    $longTitle = str_repeat('a', 256);
+    $postData = validPostData(['title' => $longTitle]);
+
+    $response = $this->postJson('/api/v1/posts', $postData);
+
+    $response->assertStatus(422)
+        ->assertJsonValidationErrors(['title']);
+});
+
+test('returns 404 for non-existent post', function () {
+    $response = $this->getJson('/api/v1/posts/99999');
+
+    $response->assertNotFound();
+});
+
+test('can create post with valid tags', function () {
+    $tag1 = \App\Models\Tag::factory()->create(['name' => 'Laravel']);
+    $tag2 = \App\Models\Tag::factory()->create(['name' => 'PHP']);
+
+    $postData = array_merge(validPostData(), [
+        'tag_ids' => [$tag1->id, $tag2->id],
+    ]);
+
+    $response = $this->postJson('/api/v1/posts', $postData);
+
+    $response->assertStatus(201);
+
+    $post = Post::latest()->first();
+    expect($post->tags)->toHaveCount(2);
+    expect($post->tags->pluck('id')->toArray())->toContain($tag1->id, $tag2->id);
+});
+
+test('cannot create post with non-existent tag_ids', function () {
+    $postData = array_merge(validPostData(), [
+        'tag_ids' => [99999, 88888],
+    ]);
+
+    $response = $this->postJson('/api/v1/posts', $postData);
+
+    $response->assertStatus(422)
+        ->assertJsonValidationErrors(['tag_ids.0', 'tag_ids.1']);
+});
+
+test('cannot create post with invalid tag_ids format', function () {
+    $postData = array_merge(validPostData(), [
+        'tag_ids' => 'not_an_array',
+    ]);
+
+    $response = $this->postJson('/api/v1/posts', $postData);
+
+    $response->assertStatus(422)
+        ->assertJsonValidationErrors(['tag_ids']);
+});
+
+test('can filter posts by status', function () {
+    Post::factory()->create([
+        'author_id' => $this->author->id,
+        'status' => PostStatus::PUBLISHED,
+    ]);
+    Post::factory()->create([
+        'author_id' => $this->author->id,
+        'status' => PostStatus::DRAFT,
+    ]);
+    Post::factory()->create([
+        'author_id' => $this->author->id,
+        'status' => PostStatus::ARCHIVED,
+    ]);
+
+    $response = $this->getJson('/api/v1/posts?filter[status]=published');
+
+    $response->assertStatus(200)
+        ->assertJsonCount(1, 'data')
+        ->assertJson([
+            'data' => [
+                ['status' => PostStatus::PUBLISHED->value],
+            ],
+        ]);
+});
+
+test('can filter posts by author_id', function () {
+    $author1 = Author::factory()->create();
+    $author2 = Author::factory()->create();
+
+    Post::factory()->count(2)->create(['author_id' => $author1->id]);
+    Post::factory()->create(['author_id' => $author2->id]);
+
+    $response = $this->getJson("/api/v1/posts?filter[author_id]={$author1->id}");
+
+    $response->assertStatus(200)
+        ->assertJsonCount(2, 'data');
+});
+
+test('can filter posts by title partial match', function () {
+    Post::factory()->create([
+        'author_id' => $this->author->id,
+        'title' => 'Laravel Testing Guide',
+    ]);
+    Post::factory()->create([
+        'author_id' => $this->author->id,
+        'title' => 'PHP Best Practices',
+    ]);
+    Post::factory()->create([
+        'author_id' => $this->author->id,
+        'title' => 'Laravel Advanced Topics',
+    ]);
+
+    $response = $this->getJson('/api/v1/posts?filter[title]=Laravel');
+
+    $response->assertStatus(200)
+        ->assertJsonCount(2, 'data');
+});
+
+test('posts are sorted by created_at descending by default', function () {
+    $oldest = Post::factory()->create([
+        'author_id' => $this->author->id,
+        'created_at' => now()->subDays(3),
+    ]);
+    $newest = Post::factory()->create([
+        'author_id' => $this->author->id,
+        'created_at' => now(),
+    ]);
+    $middle = Post::factory()->create([
+        'author_id' => $this->author->id,
+        'created_at' => now()->subDays(1),
+    ]);
+
+    $response = $this->getJson('/api/v1/posts');
+
+    $response->assertStatus(200);
+    $posts = $response->json('data');
+
+    expect($posts[0]['id'])->toBe($newest->id);
+    expect($posts[1]['id'])->toBe($middle->id);
+    expect($posts[2]['id'])->toBe($oldest->id);
+});
+
+test('can sort posts by title ascending', function () {
+    Post::factory()->create([
+        'author_id' => $this->author->id,
+        'title' => 'Zebra Post Title Here',
+    ]);
+    Post::factory()->create([
+        'author_id' => $this->author->id,
+        'title' => 'Alpha Post Title Here',
+    ]);
+    Post::factory()->create([
+        'author_id' => $this->author->id,
+        'title' => 'Beta Post Title Here',
+    ]);
+
+    $response = $this->getJson('/api/v1/posts?sort=title');
+
+    $response->assertStatus(200);
+    $posts = $response->json('data');
+
+    expect($posts[0]['title'])->toContain('Alpha');
+    expect($posts[1]['title'])->toContain('Beta');
+    expect($posts[2]['title'])->toContain('Zebra');
+});
+
+test('can sort posts by updated_at ascending', function () {
+    $oldest = Post::factory()->create([
+        'author_id' => $this->author->id,
+        'updated_at' => now()->subDays(3),
+    ]);
+    $newest = Post::factory()->create([
+        'author_id' => $this->author->id,
+        'updated_at' => now(),
+    ]);
+    $middle = Post::factory()->create([
+        'author_id' => $this->author->id,
+        'updated_at' => now()->subDays(1),
+    ]);
+
+    $response = $this->getJson('/api/v1/posts?sort=updated_at');
+
+    $response->assertStatus(200);
+    $posts = $response->json('data');
+
+    expect($posts[0]['id'])->toBe($oldest->id);
+    expect($posts[1]['id'])->toBe($middle->id);
+    expect($posts[2]['id'])->toBe($newest->id);
+});
+
+test('can update post with new tags', function () {
+    $tag1 = \App\Models\Tag::factory()->create(['name' => 'Laravel']);
+    $tag2 = \App\Models\Tag::factory()->create(['name' => 'PHP']);
+
+    $post = Post::factory()->create(['author_id' => $this->author->id]);
+
+    $updateData = array_merge(validPostData(), [
+        'title' => 'Updated Title',
+        'tag_ids' => [$tag1->id, $tag2->id],
+    ]);
+
+    $response = $this->putJson("/api/v1/posts/{$post->id}", $updateData);
+
+    $response->assertStatus(204);
+
+    $post->refresh();
+    expect($post->tags)->toHaveCount(2);
+    expect($post->tags->pluck('id')->toArray())->toContain($tag1->id, $tag2->id);
+});

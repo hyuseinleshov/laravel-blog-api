@@ -16,7 +16,7 @@ class PostQuery extends QueryBuilder
 
         $this->allowedFilters([
             AllowedFilter::exact('status'),
-            AllowedFilter::exact('user_id'),
+            AllowedFilter::exact('author_id'),
             AllowedFilter::partial('title'),
         ])
             ->allowedSorts([
