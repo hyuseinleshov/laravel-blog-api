@@ -4,8 +4,8 @@ namespace App\Filament\Resources\Posts\Schemas;
 
 use App\Enums\PostStatus;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
 class PostForm
@@ -23,7 +23,7 @@ class PostForm
                     ->options(PostStatus::class)
                     ->default('draft')
                     ->required(),
-                Select::make('user_id')
+                Select::make('author_id')
                     ->relationship('author', 'name')
                     ->required()
                     ->searchable(),

@@ -16,11 +16,11 @@ class TagQuery extends QueryBuilder
         $this->allowedFilters([
             AllowedFilter::partial('name'),
         ])
-        ->allowedSorts([
-            AllowedSort::field('created_at'),
-            AllowedSort::field('updated_at'),
-            AllowedSort::field('name'),
-        ])
-        ->defaultSort('name');
+            ->allowedSorts([
+                AllowedSort::field('created_at'),
+                AllowedSort::field('updated_at'),
+                AllowedSort::field('name'),
+            ])
+            ->defaultSort('name');
     }
 }

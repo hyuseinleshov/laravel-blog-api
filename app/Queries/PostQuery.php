@@ -19,15 +19,15 @@ class PostQuery extends QueryBuilder
             AllowedFilter::exact('user_id'),
             AllowedFilter::partial('title'),
         ])
-        ->allowedSorts([
-            AllowedSort::field('created_at'),
-            AllowedSort::field('updated_at'),
-            AllowedSort::field('title'),
-        ])
-        ->allowedIncludes([
-            AllowedInclude::relationship('author'),
-            AllowedInclude::relationship('tags'),
-        ])
-        ->defaultSort('-created_at');
+            ->allowedSorts([
+                AllowedSort::field('created_at'),
+                AllowedSort::field('updated_at'),
+                AllowedSort::field('title'),
+            ])
+            ->allowedIncludes([
+                AllowedInclude::relationship('author'),
+                AllowedInclude::relationship('tags'),
+            ])
+            ->defaultSort('-created_at');
     }
 }

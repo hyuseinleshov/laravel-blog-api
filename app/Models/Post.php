@@ -16,7 +16,7 @@ class Post extends Model
         'title',
         'content',
         'status',
-        'user_id',
+        'author_id',
     ];
 
     protected $casts = [
@@ -25,7 +25,7 @@ class Post extends Model
 
     public function author(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(Author::class, 'author_id');
     }
 
     public function tags(): BelongsToMany
