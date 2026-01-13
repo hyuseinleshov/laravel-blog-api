@@ -109,3 +109,37 @@ test('cannot login with invalid email format', function () {
     $response->assertStatus(422)
         ->assertJsonValidationErrors(['email']);
 });
+
+test('cannot login with inactive account', function () {
+    $author = Author::factory()->inactive()->create([
+        'email' => 'test@example.com',
+        'password' => 'password123',
+    ]);
+
+    $response = $this->postJson('/api/v1/auth/login', [
+        'email' => 'test@example.com',
+        'password' => 'password123',
+    ]);
+
+    $response->assertStatus(403)
+        ->assertJson([
+            'message' => 'Account is not active',
+        ]);
+});
+
+test('cannot login with suspended account', function () {
+    $author = Author::factory()->suspended()->create([
+        'email' => 'test@example.com',
+        'password' => 'password123',
+    ]);
+
+    $response = $this->postJson('/api/v1/auth/login', [
+        'email' => 'test@example.com',
+        'password' => 'password123',
+    ]);
+
+    $response->assertStatus(403)
+        ->assertJson([
+            'message' => 'Account is not active',
+        ]);
+});

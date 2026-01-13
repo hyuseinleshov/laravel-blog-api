@@ -19,7 +19,6 @@ class StorePostRequest extends FormRequest
             'title' => 'required|string|min:10|max:255',
             'content' => 'nullable|string|min:200',
             'status' => ['required', new Enum(PostStatus::class)],
-            'author_id' => 'required|exists:authors,id',
             'tag_ids' => 'nullable|array',
             'tag_ids.*' => 'integer|exists:tags,id',
         ];

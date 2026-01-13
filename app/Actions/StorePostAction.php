@@ -11,13 +11,13 @@ class StorePostAction
         private PostRepository $postRepository
     ) {}
 
-    public function execute(array $data): Post
+    public function execute(array $data, int $authorId): Post
     {
         $post = $this->postRepository->create([
             'title' => $data['title'],
             'content' => $data['content'],
             'status' => $data['status'],
-            'author_id' => $data['author_id'],
+            'author_id' => $authorId,
         ]);
 
         if (isset($data['tag_ids'])) {

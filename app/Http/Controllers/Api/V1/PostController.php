@@ -30,7 +30,10 @@ class PostController extends Controller
 
     public function store(StorePostRequest $request): PostResource
     {
-        $post = $this->storePostAction->execute($request->validated());
+        $post = $this->storePostAction->execute(
+            $request->validated(),
+            $request->user()->id
+        );
 
         return new PostResource($post);
     }
@@ -42,6 +45,8 @@ class PostController extends Controller
 
     public function update(UpdatePostRequest $request, Post $post): Response
     {
+        $this->authorize('update', $post);
+
         $this->updatePostAction->execute($post, $request->validated());
 
         return response()->noContent();
@@ -49,6 +54,8 @@ class PostController extends Controller
 
     public function destroy(Post $post): Response
     {
+        $this->authorize('delete', $post);
+
         $post->delete();
 
         return response()->noContent();

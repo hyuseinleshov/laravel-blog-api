@@ -38,6 +38,8 @@ class TagController extends Controller
 
     public function update(UpdateTagRequest $request, Tag $tag): Response
     {
+        $this->authorize('update', $tag);
+
         $this->tagRepository->update($tag, $request->validated());
 
         return response()->noContent();
@@ -45,6 +47,8 @@ class TagController extends Controller
 
     public function destroy(Tag $tag): Response
     {
+        $this->authorize('delete', $tag);
+
         $tag->delete();
 
         return response()->noContent();

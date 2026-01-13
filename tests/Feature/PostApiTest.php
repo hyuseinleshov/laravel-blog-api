@@ -6,6 +6,7 @@ use App\Models\Post;
 
 beforeEach(function () {
     $this->author = Author::factory()->create();
+    $this->actingAs($this->author, 'sanctum');
 });
 
 function validPostData(array $overrides = []): array
@@ -14,7 +15,6 @@ function validPostData(array $overrides = []): array
         'title' => 'Test Post Title',
         'content' => str_repeat('a', 200),
         'status' => PostStatus::PUBLISHED->value,
-        'author_id' => test()->author->id,
     ], $overrides);
 }
 
@@ -120,7 +120,7 @@ test('cannot create post without required fields', function () {
     $response = $this->postJson('/api/v1/posts', []);
 
     $response->assertStatus(422)
-        ->assertJsonValidationErrors(['title', 'status', 'author_id']);
+        ->assertJsonValidationErrors(['title', 'status']);
 });
 
 test('cannot create post with title too short', function () {
@@ -139,4 +139,178 @@ test('cannot create post with content too short', function () {
 
     $response->assertStatus(422)
         ->assertJsonValidationErrors(['content']);
+});
+
+test('can access posts without authentication', function () {
+    Post::factory()->count(3)->create(['author_id' => Author::factory()->create()->id]);
+
+    $this->app['auth']->forgetGuards();
+
+    $response = $this->getJson('/api/v1/posts');
+
+    $response->assertOk()
+        ->assertJsonCount(3, 'data');
+});
+
+test('can view single post without authentication', function () {
+    $author = Author::factory()->create();
+    $post = Post::factory()->create(['author_id' => $author->id]);
+
+    $this->app['auth']->forgetGuards();
+
+    $response = $this->getJson("/api/v1/posts/{$post->id}");
+
+    $response->assertOk()
+        ->assertJson([
+            'data' => [
+                'id' => $post->id,
+                'title' => $post->title,
+            ],
+        ]);
+});
+
+test('cannot create post without authentication', function () {
+    $this->app['auth']->forgetGuards();
+
+    $postData = validPostData();
+
+    $response = $this->postJson('/api/v1/posts', $postData);
+
+    $response->assertUnauthorized();
+});
+
+test('cannot update post without authentication', function () {
+    $author = Author::factory()->create();
+    $post = Post::factory()->create(['author_id' => $author->id]);
+
+    $this->app['auth']->forgetGuards();
+
+    $updateData = validPostData(['title' => 'Updated Title']);
+
+    $response = $this->putJson("/api/v1/posts/{$post->id}", $updateData);
+
+    $response->assertUnauthorized();
+});
+
+test('cannot delete post without authentication', function () {
+    $author = Author::factory()->create();
+    $post = Post::factory()->create(['author_id' => $author->id]);
+
+    $this->app['auth']->forgetGuards();
+
+    $response = $this->deleteJson("/api/v1/posts/{$post->id}");
+
+    $response->assertUnauthorized();
+});
+
+test('cannot update another authors post', function () {
+    $originalAuthor = Author::factory()->create();
+    $post = Post::factory()->create(['author_id' => $originalAuthor->id]);
+
+    $differentAuthor = Author::factory()->create();
+    $this->actingAs($differentAuthor, 'sanctum');
+
+    $updateData = validPostData(['title' => 'Hacked Title']);
+
+    $response = $this->putJson("/api/v1/posts/{$post->id}", $updateData);
+
+    $response->assertForbidden();
+
+    $this->assertDatabaseHas('posts', [
+        'id' => $post->id,
+        'title' => $post->title,
+    ]);
+
+    $this->assertDatabaseMissing('posts', [
+        'id' => $post->id,
+        'title' => 'Hacked Title',
+    ]);
+});
+
+test('cannot delete another authors post', function () {
+    $originalAuthor = Author::factory()->create();
+    $post = Post::factory()->create(['author_id' => $originalAuthor->id]);
+
+    $differentAuthor = Author::factory()->create();
+    $this->actingAs($differentAuthor, 'sanctum');
+
+    $response = $this->deleteJson("/api/v1/posts/{$post->id}");
+
+    $response->assertForbidden();
+
+    $this->assertDatabaseHas('posts', [
+        'id' => $post->id,
+    ]);
+});
+
+test('author can update their own post', function () {
+    $author = Author::factory()->create();
+    $post = Post::factory()->create(['author_id' => $author->id]);
+
+    $this->actingAs($author, 'sanctum');
+
+    $updateData = validPostData(['title' => 'My Updated Title']);
+
+    $response = $this->putJson("/api/v1/posts/{$post->id}", $updateData);
+
+    $response->assertNoContent();
+
+    $this->assertDatabaseHas('posts', [
+        'id' => $post->id,
+        'title' => 'My Updated Title',
+    ]);
+});
+
+test('author can delete their own post', function () {
+    $author = Author::factory()->create();
+    $post = Post::factory()->create(['author_id' => $author->id]);
+
+    $this->actingAs($author, 'sanctum');
+
+    $response = $this->deleteJson("/api/v1/posts/{$post->id}");
+
+    $response->assertNoContent();
+
+    $this->assertDatabaseMissing('posts', [
+        'id' => $post->id,
+    ]);
+});
+
+test('post is created with authenticated authors id', function () {
+    $author = Author::factory()->create();
+    $this->actingAs($author, 'sanctum');
+
+    $postData = validPostData(['title' => 'My New Post']);
+
+    $response = $this->postJson('/api/v1/posts', $postData);
+
+    $response->assertStatus(201);
+
+    $this->assertDatabaseHas('posts', [
+        'title' => 'My New Post',
+        'author_id' => $author->id,
+    ]);
+});
+
+test('cannot specify different author_id when creating post', function () {
+    $author = Author::factory()->create();
+    $otherAuthor = Author::factory()->create();
+
+    $this->actingAs($author, 'sanctum');
+
+    $postData = array_merge(validPostData(), [
+        'author_id' => $otherAuthor->id,
+    ]);
+
+    $response = $this->postJson('/api/v1/posts', $postData);
+
+    $response->assertStatus(201);
+
+    $this->assertDatabaseMissing('posts', [
+        'author_id' => $otherAuthor->id,
+    ]);
+
+    $this->assertDatabaseHas('posts', [
+        'author_id' => $author->id,
+    ]);
 });

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Auth;
 
+use App\Enums\AuthorStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\Auth\AuthorResource;
@@ -21,6 +22,15 @@ class LoginController extends Controller
         }
 
         $author = Auth::guard('authors')->user();
+
+        if ($author->status !== AuthorStatus::ACTIVE) {
+            Auth::guard('authors')->logout();
+
+            return response()->json([
+                'message' => 'Account is not active',
+            ], 403);
+        }
+
         $token = $author->createToken('api-token')->plainTextToken;
 
         return response()->json([
