@@ -1,11 +1,11 @@
 <?php
 
 use App\Enums\PostStatus;
+use App\Models\Author;
 use App\Models\Post;
-use App\Models\User;
 
 beforeEach(function () {
-    $this->user = User::factory()->create();
+    $this->author = Author::factory()->create();
 });
 
 function validPostData(array $overrides = []): array
@@ -14,12 +14,12 @@ function validPostData(array $overrides = []): array
         'title' => 'Test Post Title',
         'content' => str_repeat('a', 200),
         'status' => PostStatus::PUBLISHED->value,
-        'user_id' => test()->user->id,
+        'author_id' => test()->author->id,
     ], $overrides);
 }
 
 test('can get all posts', function () {
-    Post::factory()->count(3)->create(['user_id' => $this->user->id]);
+    Post::factory()->count(3)->create(['author_id' => $this->author->id]);
 
     $response = $this->getJson('/api/v1/posts');
 
@@ -33,7 +33,7 @@ test('can get all posts', function () {
 });
 
 test('can get all posts with includes', function () {
-    Post::factory()->count(3)->create(['user_id' => $this->user->id]);
+    Post::factory()->count(3)->create(['author_id' => $this->author->id]);
 
     $response = $this->getJson('/api/v1/posts?include=author,tags');
 
@@ -64,12 +64,12 @@ test('can create post', function () {
 
     $this->assertDatabaseHas('posts', [
         'title' => $postData['title'],
-        'user_id' => $this->user->id,
+        'author_id' => $this->author->id,
     ]);
 });
 
 test('can get single post', function () {
-    $post = Post::factory()->create(['user_id' => $this->user->id]);
+    $post = Post::factory()->create(['author_id' => $this->author->id]);
 
     $response = $this->getJson("/api/v1/posts/{$post->id}");
 
@@ -86,7 +86,7 @@ test('can get single post', function () {
 });
 
 test('can update post', function () {
-    $post = Post::factory()->create(['user_id' => $this->user->id]);
+    $post = Post::factory()->create(['author_id' => $this->author->id]);
 
     $updateData = validPostData([
         'title' => 'Updated Title',
@@ -105,7 +105,7 @@ test('can update post', function () {
 });
 
 test('can delete post', function () {
-    $post = Post::factory()->create(['user_id' => $this->user->id]);
+    $post = Post::factory()->create(['author_id' => $this->author->id]);
 
     $response = $this->deleteJson("/api/v1/posts/{$post->id}");
 
@@ -120,7 +120,7 @@ test('cannot create post without required fields', function () {
     $response = $this->postJson('/api/v1/posts', []);
 
     $response->assertStatus(422)
-        ->assertJsonValidationErrors(['title', 'status', 'user_id']);
+        ->assertJsonValidationErrors(['title', 'status', 'author_id']);
 });
 
 test('cannot create post with title too short', function () {

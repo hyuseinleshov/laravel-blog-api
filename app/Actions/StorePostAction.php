@@ -17,7 +17,7 @@ class StorePostAction
             'title' => $data['title'],
             'content' => $data['content'],
             'status' => $data['status'],
-            'user_id' => $data['user_id'],
+            'author_id' => $data['author_id'],
         ]);
 
         if (isset($data['tag_ids'])) {
