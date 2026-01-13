@@ -4,18 +4,21 @@ This project demonstrates Laravel development practices including clean architec
 
 ## Features
 
+- **Author Authentication**: Sanctum-based token authentication with registration, login, and logout
+- **Authorization Policies**: Role-based access control for posts and tags
 - **Posts Management**: Full CRUD operations with status workflow (draft, published, archived)
 - **Tags System**: Many-to-many relationship with posts
 - **User Attribution**: Posts are associated with authors
+- **Rate Limiting**: Throttled authentication endpoints (5 requests per minute)
 - **Admin Panel**: Filament-powered UI for managing posts and tags
 - **Comprehensive Testing**: Feature tests with Pest framework
 - **API Versioning**: Structured v1 API routes
 
 ## Tech Stack
 
-- **Framework**: Laravel 12.41.1
-- **PHP**: 8.5.0
+- **Framework**: Laravel 12
 - **Database**: SQLite (development)
+- **Authentication**: Laravel Sanctum
 - **Testing**: Pest
 - **Admin Panel**: Filament
 - **Code Quality**: Laravel Pint
@@ -66,16 +69,7 @@ GET /api/v1/posts?include=author,tags
 GET /api/v1/posts?filter[status]=published&include=author&sort=-created_at
 ```
 
-**Available filters:**
-- Posts: `status` (exact), `user_id` (exact), `title` (partial)
-- Tags: `name` (partial)
-
-**Available sorts:**
-- Posts: `created_at`, `updated_at`, `title` (prefix with `-` for descending)
-- Tags: `created_at`, `updated_at`, `name`
-
-**Available includes:**
-- Posts: `author`, `tags`
+See [PostQuery](app/Queries/PostQuery.php) and [TagQuery](app/Queries/TagQuery.php) for available filters, sorts, and includes.
 
 ### Form Request Validation
 All input validation is handled through dedicated Form Request classes (`StorePostRequest`, `UpdatePostRequest`, etc.) to keep controllers clean and validation logic reusable.
@@ -114,136 +108,49 @@ php artisan serve
 
 Base URL: `http://localhost:8000/api/v1`
 
-### Posts Endpoints
+### Authentication & Authorization
 
-#### Get All Posts
-```http
-GET /api/v1/posts
-```
+The API uses **Laravel Sanctum** for token-based authentication. Authentication is required for creating, updating, and deleting posts and tags.
 
-**Response:**
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "title": "Getting Started with Laravel",
-      "content": "Laravel is a powerful PHP framework...",
-      "status": "published",
-      "author": {
-        "id": 1,
-        "name": "John Doe"
-      },
-      "tags": [
-        {"id": 1, "name": "Laravel"},
-        {"id": 2, "name": "PHP"}
-      ],
-      "created_at": "2024-12-09T10:30:00.000000Z",
-      "updated_at": "2024-12-09T10:30:00.000000Z"
-    }
-  ]
-}
-```
+**Authentication Endpoints:**
+- `POST /api/v1/auth/register` - Register a new author
+- `POST /api/v1/auth/login` - Login and receive access token
+- `POST /api/v1/auth/logout` - Logout and revoke current token
+- `GET /api/v1/auth/me` - Get authenticated author details
 
-#### Create Post
-```http
-POST /api/v1/posts
-Content-Type: application/json
-```
+**Rate Limiting:** Authentication endpoints are limited to 5 requests per minute to prevent brute force attacks.
 
-**Request:**
-```json
-{
-  "title": "My New Blog Post",
-  "content": "This is the content of my blog post. It must be at least 200 characters long to meet validation requirements. Here's some additional content to meet that requirement and provide meaningful information.",
-  "status": "published",
-  "user_id": 1,
-  "tag_ids": [1, 2]
-}
-```
+**Authorization Policies:**
+- **Posts**: Authors can only update/delete their own posts ([PostPolicy](app/Policies/PostPolicy.php))
+- **Tags**: Tags can only be updated/deleted if they have no associated posts ([TagPolicy](app/Policies/TagPolicy.php))
 
-**Validation Rules:**
-- `title`: required, string, min:10, max:255
-- `content`: nullable, string, min:200
-- `status`: required, enum (draft, published, archived)
-- `user_id`: required, exists in users table
-- `tag_ids`: optional array of tag IDs
+### Resource Endpoints
 
-#### Get Single Post
-```http
-GET /api/v1/posts/{id}
-```
+**Posts:**
+- `GET /api/v1/posts` - List all posts (public)
+- `GET /api/v1/posts/{id}` - Get single post (public)
+- `POST /api/v1/posts` - Create post (authenticated, auto-assigned to author)
+- `PUT /api/v1/posts/{id}` - Update post (authenticated, author only)
+- `DELETE /api/v1/posts/{id}` - Delete post (authenticated, author only)
 
-#### Update Post
-```http
-PUT /api/v1/posts/{id}
-Content-Type: application/json
-```
+**Tags:**
+- `GET /api/v1/tags` - List all tags (public)
+- `GET /api/v1/tags/{id}` - Get single tag (public)
+- `POST /api/v1/tags` - Create tag (authenticated)
+- `PUT /api/v1/tags/{id}` - Update tag (authenticated, only if unused)
+- `DELETE /api/v1/tags/{id}` - Delete tag (authenticated, only if unused)
 
-**Request:**
-```json
-{
-  "title": "Updated Title",
-  "status": "archived",
-  "tag_ids": [1, 3]
-}
-```
+### Security Features
 
-**Response:** 204 No Content
+- **Password Security**: Bcrypt hashing
+- **Token Authentication**: Stateless, prevents session hijacking
+- **Account Status**: Inactive accounts cannot login
+- **Rate Limiting**: 5 requests/minute on auth endpoints
+- **Policy Authorization**: Prevents unauthorized resource access
+- **Auto-assignment**: `author_id` prevents privilege escalation
+- **Token Revocation**: Immediate access termination on logout
 
-**Note:** Update endpoints return 204 No Content to avoid returning stale data. If you need the updated resource, issue a separate GET request to retrieve the current state from the database.
-
-#### Delete Post
-```http
-DELETE /api/v1/posts/{id}
-```
-
-**Response:** 204 No Content
-
-### Tags Endpoints
-
-#### Get All Tags
-```http
-GET /api/v1/tags
-```
-
-#### Create Tag
-```http
-POST /api/v1/tags
-Content-Type: application/json
-```
-
-**Request:**
-```json
-{
-  "name": "JavaScript"
-}
-```
-
-**Validation Rules:**
-- `name`: required, unique, max:50
-
-#### Get Single Tag
-```http
-GET /api/v1/tags/{id}
-```
-
-#### Update Tag
-```http
-PUT /api/v1/tags/{id}
-Content-Type: application/json
-```
-
-**Response:** 204 No Content
-
-**Note:** Update endpoints return 204 No Content to avoid returning stale data. If you need the updated resource, issue a separate GET request to retrieve the current state from the database.
-
-#### Delete Tag
-```http
-DELETE /api/v1/tags/{id}
-```
-
-**Response:** 204 No Content
+For detailed API requests, responses, and interactive testing, see the Postman collection below.
 
 ## Admin Panel
 
@@ -257,11 +164,8 @@ Features:
 
 ## Testing
 
-The project includes comprehensive feature tests covering:
-- CRUD operations for posts
-- Input validation
-- Relationship handling
-- JSON response structure
+The project includes comprehensive feature tests covering authentication, authorization, CRUD operations, and validation.
+
 ```bash
 # Run all tests
 php artisan test
@@ -269,14 +173,6 @@ php artisan test
 # Run tests with coverage
 php artisan test --coverage
 ```
-
-**Test Coverage:**
-- ✅ Get all posts
-- ✅ Create post with validation
-- ✅ Get single post
-- ✅ Update post
-- ✅ Delete post
-- ✅ Validation error handling
 
 ## Code Quality
 
@@ -289,44 +185,16 @@ The codebase follows Laravel coding standards enforced by Laravel Pint:
 ./vendor/bin/pint
 ```
 
-## Project Structure
-```
-app/
-├── Actions/                       # Business operations with side effects
-│   ├── StorePostAction.php
-│   └── UpdatePostAction.php
-├── Enums/PostStatus.php           # Post status enum
-├── Http/
-│   ├── Controllers/Api/V1/        # API controllers
-│   ├── Requests/                  # Form request validation
-│   └── Resources/                 # API resource transformers
-├── Models/                        # Eloquent models
-├── Queries/                       # Spatie Query Builder configurations
-│   ├── PostQuery.php
-│   └── TagQuery.php
-├── Repositories/                  # Data access layer
-│   ├── PostRepository.php
-│   └── TagRepository.php
-└── Services/                      # External integrations (empty for now)
-
-database/
-├── factories/                     # Model factories for testing
-├── migrations/                    # Database migrations
-└── seeders/                       # Database seeders
-
-tests/
-└── Feature/                       # API feature tests
-    └── PostApiTest.php
-```
-
 ## Design Patterns
+- **Token-Based Authentication**: Laravel Sanctum for stateless API authentication
+- **Policy-Based Authorization**: Separate policy classes for resource access control
 - **Repository Pattern**: Data access layer for CRUD operations
 - **Action Pattern**: Business operations with side effects or multiple steps
 - **Query Builder Pattern**: Spatie Query Builder for filtering, sorting, and includes
 - **Form Request Validation**: Dedicated validation classes
 - **API Resources**: Consistent JSON transformation with nested resource classes
 - **Eager Loading**: Conditional relationship loading with `whenLoaded()` to prevent N+1 queries
-- **Enum Types**: Type-safe status values
+- **Enum Types**: Type-safe status values (PostStatus, AuthorStatus)
 - **Factory Pattern**: Test data generation
 - **Database Transactions**: RefreshDatabase in tests
 
