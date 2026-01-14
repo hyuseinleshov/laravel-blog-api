@@ -5,13 +5,17 @@ This project demonstrates Laravel development practices including clean architec
 ## Features
 
 - **Author Authentication**: Sanctum-based token authentication with registration, login, and logout
+- **Subscription Plans**: Three-tier subscription system (Basic, Medium, Premium) with monthly limits
+- **Stripe Payment Integration**: Secure payment processing using Stripe sandbox for paid subscriptions
+- **Webhook Processing**: Automated subscription activation via Stripe payment_intent.succeeded webhooks
 - **Authorization Policies**: Role-based access control for posts and tags
 - **Posts Management**: Full CRUD operations with status workflow (draft, published, archived)
 - **Tags System**: Many-to-many relationship with posts
 - **User Attribution**: Posts are associated with authors
+- **Transaction History**: Complete payment tracking and audit trail
 - **Rate Limiting**: Throttled authentication endpoints (5 requests per minute)
-- **Admin Panel**: Filament-powered UI for managing posts and tags
-- **Comprehensive Testing**: Feature tests with Pest framework
+- **Admin Panel**: Filament-powered UI for managing posts, tags, subscriptions, and transactions
+- **Comprehensive Testing**: Feature tests with Pest framework covering all subscription flows
 - **API Versioning**: Structured v1 API routes
 
 ## Tech Stack
@@ -19,63 +23,26 @@ This project demonstrates Laravel development practices including clean architec
 - **Framework**: Laravel 12
 - **Database**: SQLite (development)
 - **Authentication**: Laravel Sanctum
+- **Payment Processing**: Stripe API (sandbox mode)
 - **Testing**: Pest
 - **Admin Panel**: Filament
 - **Code Quality**: Laravel Pint
 
-## Architectural Decisions
+## Architecture
 
-This project follows a clean architecture with clear separation of concerns:
+**Clean Architecture Layers:**
+- **Controllers**: HTTP layer, delegates to Actions
+- **Actions**: Business operations with multiple steps (e.g., `CheckoutAction`, `ProcessStripeWebhookAction`)
+- **Services**: External API integrations (e.g., `StripeService` for Stripe)
+- **Repositories**: Data access layer
+- **Form Requests**: Input validation
+- **API Resources**: JSON response transformation
 
-### Repository/Action/Service Architecture
-
-**Repositories** (`app/Repositories/`)
-- Handle data access only (queries, CRUD operations)
-- No business logic or side effects
-- Example: `PostRepository`, `TagRepository`
-
-**Actions** (`app/Actions/`)
-- Contain business operations with side effects or multiple steps
-- Used when operations are more complex than simple CRUD
-- Example: `StorePostAction` (creates post + attaches tags), `UpdatePostAction` (updates post + syncs tags)
-
-**Services** (`app/Services/`)
-- Reserved for external integrations only (Stripe, email providers, etc.)
-- Currently empty - will be used for third-party API integrations in the future
-
-**When to use Actions vs. inline operations:**
-- **Use Actions**: Multi-step operations, side effects, event dispatching, complex business logic
-- **Keep inline**: Simple single-model operations with no side effects (e.g., `$tag->delete()`)
-
-### Query Builder Pattern
-
-Listing endpoints use **Spatie Query Builder** (`app/Queries/`) for consistent filtering, sorting, and relationship loading:
-
-**Example Usage:**
+**Query Builder Pattern:**
+Listing endpoints support filtering, sorting, and relationship loading via Spatie Query Builder.
 ```http
-# Filter posts by status
-GET /api/v1/posts?filter[status]=published
-
-# Search posts by partial title match
-GET /api/v1/posts?filter[title]=Laravel
-
-# Sort posts by title descending
-GET /api/v1/posts?sort=-title
-
-# Include relationships to avoid N+1 queries
-GET /api/v1/posts?include=author,tags
-
-# Combine multiple parameters
-GET /api/v1/posts?filter[status]=published&include=author&sort=-created_at
+GET /api/v1/posts?filter[status]=published&include=author,tags&sort=-created_at
 ```
-
-See [PostQuery](app/Queries/PostQuery.php) and [TagQuery](app/Queries/TagQuery.php) for available filters, sorts, and includes.
-
-### Form Request Validation
-All input validation is handled through dedicated Form Request classes (`StorePostRequest`, `UpdatePostRequest`, etc.) to keep controllers clean and validation logic reusable.
-
-### API Resources
-JSON responses use API Resource classes to decouple internal data structures from API responses and ensure consistent output formatting. Nested resources use dedicated resource classes (e.g., `AuthorResource`, `TagResource`) with `whenLoaded()` for conditional relationship loading.
 
 ## Installation
 ```bash
@@ -102,6 +69,9 @@ php artisan make:filament-user
 
 # Start development server
 php artisan serve
+
+# For Stripe integration (optional), add test keys to .env and use Stripe CLI:
+# stripe listen --forward-to http://localhost:8000/api/v1/webhooks/stripe
 ```
 
 ## API Documentation
@@ -123,6 +93,24 @@ The API uses **Laravel Sanctum** for token-based authentication. Authentication 
 **Authorization Policies:**
 - **Posts**: Authors can only update/delete their own posts ([PostPolicy](app/Policies/PostPolicy.php))
 - **Tags**: Tags can only be updated/deleted if they have no associated posts ([TagPolicy](app/Policies/TagPolicy.php))
+
+### Subscription Endpoints
+
+**Subscription Plans:**
+- **Basic**: Free plan with 2 posts per month limit
+- **Medium**: €2/month with 10 posts per month limit
+- **Premium**: €10/month with unlimited posts
+
+**Subscription Management:**
+- `POST /api/v1/subscriptions/checkout` - Checkout a subscription plan (authenticated)
+  - Request: `{"plan": "basic"|"medium"|"premium"}`
+  - Response (Basic): `{"subscription_id": 1, "plan": "basic", "status": "active"}`
+  - Response (Paid): `{"subscription_id": 1, "plan": "medium", "status": "pending", "client_secret": "pi_..."}`
+- `GET /api/v1/subscriptions/current` - Get authenticated author's active subscription
+- `POST /api/v1/webhooks/stripe` - Stripe webhook endpoint (public, signature-verified)
+
+**Payment Flow:**
+Basic plan is free and activated immediately. Paid plans (Medium/Premium) return a Stripe `client_secret` for frontend payment, then activate automatically via webhook.
 
 ### Resource Endpoints
 
@@ -157,14 +145,21 @@ For detailed API requests, responses, and interactive testing, see the Postman c
 Access the Filament admin panel at `http://localhost:8000/admin`
 
 Features:
-- Visual management of posts and tags
-- Multi-select tag attachment to posts
+- **Posts & Tags Management**: Visual CRUD operations with multi-select relationships
+- **Subscriptions**: View all author subscriptions with plan, status, and validity dates
+  - Manual override capability for admin corrections
+  - Filter by plan and status
+  - Payment history via relation manager
+- **Transactions**: Complete payment audit trail
+  - View Stripe payment IDs, amounts, currencies
+  - Filter by author, plan, and status
+  - Linked to subscriptions for tracking
 - Post status management with badges
-- Search and filter capabilities
+- Search and filter capabilities across all resources
 
 ## Testing
 
-The project includes comprehensive feature tests covering authentication, authorization, CRUD operations, and validation.
+The project includes comprehensive feature tests covering authentication, authorization, CRUD operations, subscriptions, payment processing, and validation.
 
 ```bash
 # Run all tests
@@ -172,7 +167,14 @@ php artisan test
 
 # Run tests with coverage
 php artisan test --coverage
+
+# Run subscription-related tests
+php artisan test --filter Subscription
+
+# Run webhook tests
+php artisan test --filter Webhook
 ```
+
 
 ## Code Quality
 
@@ -185,22 +187,25 @@ The codebase follows Laravel coding standards enforced by Laravel Pint:
 ./vendor/bin/pint
 ```
 
-## Design Patterns
-- **Token-Based Authentication**: Laravel Sanctum for stateless API authentication
-- **Policy-Based Authorization**: Separate policy classes for resource access control
-- **Repository Pattern**: Data access layer for CRUD operations
-- **Action Pattern**: Business operations with side effects or multiple steps
-- **Query Builder Pattern**: Spatie Query Builder for filtering, sorting, and includes
-- **Form Request Validation**: Dedicated validation classes
-- **API Resources**: Consistent JSON transformation with nested resource classes
-- **Eager Loading**: Conditional relationship loading with `whenLoaded()` to prevent N+1 queries
-- **Enum Types**: Type-safe status values (PostStatus, AuthorStatus)
-- **Factory Pattern**: Test data generation
-- **Database Transactions**: RefreshDatabase in tests
 
-## Development Notes
+## Scheduled Tasks
 
-This is an **API-only** project with no public frontend. The Filament admin panel provides a visual interface for content management but is separate from the public API surface.
+The application includes a command to mark expired subscriptions:
+
+```bash
+# Manually run the expiry check
+php artisan subscriptions:expire
+
+# Add to cron (production)
+* * * * * cd /path-to-your-project && php artisan schedule:run >> /dev/null 2>&1
+```
+
+In production, configure your scheduler to run this command daily to mark expired subscriptions.
+
+## Notes
+
+- This is an **API-only** project (no frontend). Filament admin panel is for internal use only.
+- Stripe integration uses sandbox mode (test keys). Payments are single charges, not recurring subscriptions.
 
 ## License
 
