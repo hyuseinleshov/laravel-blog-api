@@ -1,7 +1,7 @@
 <?php
 
+use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
-use App\Enums\SubscriptionTier;
 use App\Models\Author;
 use App\Models\Subscription;
 use App\Services\StripeService;
@@ -13,57 +13,57 @@ beforeEach(function () {
 
 test('unauthenticated user cannot checkout', function () {
     $response = $this->postJson('/api/v1/subscriptions/checkout', [
-        'tier' => 'basic',
+        'plan' => 'basic',
     ]);
 
     $response->assertStatus(401);
 });
 
-test('checkout requires tier', function () {
+test('checkout requires plan', function () {
     $response = $this->actingAs($this->author, 'sanctum')
         ->postJson('/api/v1/subscriptions/checkout', []);
 
     $response->assertStatus(422)
-        ->assertJsonValidationErrors(['tier']);
+        ->assertJsonValidationErrors(['plan']);
 });
 
-test('checkout requires valid tier', function () {
+test('checkout requires valid plan', function () {
     $response = $this->actingAs($this->author, 'sanctum')
         ->postJson('/api/v1/subscriptions/checkout', [
-            'tier' => 'invalid',
+            'plan' => 'invalid',
         ]);
 
     $response->assertStatus(422)
-        ->assertJsonValidationErrors(['tier']);
+        ->assertJsonValidationErrors(['plan']);
 });
 
-test('can checkout basic tier', function () {
+test('can checkout basic plan', function () {
     $response = $this->actingAs($this->author, 'sanctum')
         ->postJson('/api/v1/subscriptions/checkout', [
-            'tier' => 'basic',
+            'plan' => 'basic',
         ]);
 
     $response->assertStatus(201)
         ->assertJsonStructure([
             'subscription_id',
-            'tier',
+            'plan',
             'status',
         ])
         ->assertJson([
-            'tier' => 'basic',
+            'plan' => 'basic',
             'status' => 'active',
         ])
         ->assertJsonMissing(['client_secret']);
 
     $this->assertDatabaseHas('subscriptions', [
         'author_id' => $this->author->id,
-        'plan' => SubscriptionTier::BASIC->value,
+        'plan' => SubscriptionPlan::BASIC->value,
         'status' => SubscriptionStatus::ACTIVE->value,
         'stripe_payment_intent_id' => null,
     ]);
 });
 
-test('can checkout medium tier', function () {
+test('can checkout medium plan', function () {
     $mockPaymentIntent = new stdClass;
     $mockPaymentIntent->id = 'pi_test_123';
     $mockPaymentIntent->client_secret = 'pi_test_123_secret';
@@ -71,37 +71,37 @@ test('can checkout medium tier', function () {
     $this->mock(StripeService::class, function (MockInterface $mock) use ($mockPaymentIntent) {
         $mock->shouldReceive('createPaymentIntent')
             ->once()
-            ->with($this->author, SubscriptionTier::MEDIUM)
+            ->with($this->author, SubscriptionPlan::MEDIUM)
             ->andReturn($mockPaymentIntent);
     });
 
     $response = $this->actingAs($this->author, 'sanctum')
         ->postJson('/api/v1/subscriptions/checkout', [
-            'tier' => 'medium',
+            'plan' => 'medium',
         ]);
 
     $response->assertStatus(201)
         ->assertJsonStructure([
             'subscription_id',
-            'tier',
+            'plan',
             'status',
             'client_secret',
         ])
         ->assertJson([
-            'tier' => 'medium',
+            'plan' => 'medium',
             'status' => 'pending',
             'client_secret' => 'pi_test_123_secret',
         ]);
 
     $this->assertDatabaseHas('subscriptions', [
         'author_id' => $this->author->id,
-        'plan' => SubscriptionTier::MEDIUM->value,
+        'plan' => SubscriptionPlan::MEDIUM->value,
         'status' => SubscriptionStatus::PENDING->value,
         'stripe_payment_intent_id' => 'pi_test_123',
     ]);
 });
 
-test('can checkout premium tier', function () {
+test('can checkout premium plan', function () {
     $mockPaymentIntent = new stdClass;
     $mockPaymentIntent->id = 'pi_test_456';
     $mockPaymentIntent->client_secret = 'pi_test_456_secret';
@@ -109,31 +109,31 @@ test('can checkout premium tier', function () {
     $this->mock(StripeService::class, function (MockInterface $mock) use ($mockPaymentIntent) {
         $mock->shouldReceive('createPaymentIntent')
             ->once()
-            ->with($this->author, SubscriptionTier::PREMIUM)
+            ->with($this->author, SubscriptionPlan::PREMIUM)
             ->andReturn($mockPaymentIntent);
     });
 
     $response = $this->actingAs($this->author, 'sanctum')
         ->postJson('/api/v1/subscriptions/checkout', [
-            'tier' => 'premium',
+            'plan' => 'premium',
         ]);
 
     $response->assertStatus(201)
         ->assertJsonStructure([
             'subscription_id',
-            'tier',
+            'plan',
             'status',
             'client_secret',
         ])
         ->assertJson([
-            'tier' => 'premium',
+            'plan' => 'premium',
             'status' => 'pending',
             'client_secret' => 'pi_test_456_secret',
         ]);
 
     $this->assertDatabaseHas('subscriptions', [
         'author_id' => $this->author->id,
-        'plan' => SubscriptionTier::PREMIUM->value,
+        'plan' => SubscriptionPlan::PREMIUM->value,
         'status' => SubscriptionStatus::PENDING->value,
         'stripe_payment_intent_id' => 'pi_test_456',
     ]);
@@ -142,7 +142,7 @@ test('can checkout premium tier', function () {
 test('existing active subscription is expired when checking out', function () {
     $existingSubscription = Subscription::factory()->create([
         'author_id' => $this->author->id,
-        'plan' => SubscriptionTier::BASIC,
+        'plan' => SubscriptionPlan::BASIC,
         'status' => SubscriptionStatus::ACTIVE,
         'valid_from' => now()->subMonth(),
         'valid_to' => now()->addMonth(),
@@ -150,7 +150,7 @@ test('existing active subscription is expired when checking out', function () {
 
     $response = $this->actingAs($this->author, 'sanctum')
         ->postJson('/api/v1/subscriptions/checkout', [
-            'tier' => 'basic',
+            'plan' => 'basic',
         ]);
 
     $response->assertStatus(201);
@@ -171,7 +171,7 @@ test('checkout creates subscription with correct valid from for basic', function
 
     $response = $this->actingAs($this->author, 'sanctum')
         ->postJson('/api/v1/subscriptions/checkout', [
-            'tier' => 'basic',
+            'plan' => 'basic',
         ]);
 
     $afterCheckout = now()->addSecond();
@@ -186,7 +186,7 @@ test('checkout creates subscription with correct valid from for basic', function
     expect($subscription->valid_to)->toBeNull();
 });
 
-test('checkout creates pending subscription with null dates for paid tiers', function () {
+test('checkout creates pending subscription with null dates for paid plans', function () {
     $mockPaymentIntent = new stdClass;
     $mockPaymentIntent->id = 'pi_test_123';
     $mockPaymentIntent->client_secret = 'pi_test_123_secret';
@@ -199,7 +199,7 @@ test('checkout creates pending subscription with null dates for paid tiers', fun
 
     $response = $this->actingAs($this->author, 'sanctum')
         ->postJson('/api/v1/subscriptions/checkout', [
-            'tier' => 'medium',
+            'plan' => 'medium',
         ]);
 
     $response->assertStatus(201);

@@ -2,8 +2,8 @@
 
 namespace App\Actions;
 
+use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
-use App\Enums\SubscriptionTier;
 use App\Models\Author;
 use App\Repositories\SubscriptionRepository;
 use App\Services\StripeService;
@@ -16,13 +16,13 @@ class CheckoutAction
         private readonly SubscriptionRepository $subscriptionRepository
     ) {}
 
-    public function execute(Author $author, SubscriptionTier $tier): array
+    public function execute(Author $author, SubscriptionPlan $plan): array
     {
-        if ($tier === SubscriptionTier::BASIC) {
+        if ($plan === SubscriptionPlan::BASIC) {
             return $this->createBasicSubscription($author);
         }
 
-        return $this->createPaidSubscription($author, $tier);
+        return $this->createPaidSubscription($author, $plan);
     }
 
     private function createBasicSubscription(Author $author): array
@@ -36,7 +36,7 @@ class CheckoutAction
 
             return $this->subscriptionRepository->create([
                 'author_id' => $author->id,
-                'plan' => SubscriptionTier::BASIC,
+                'plan' => SubscriptionPlan::BASIC,
                 'status' => SubscriptionStatus::ACTIVE,
                 'valid_from' => now(),
                 'valid_to' => null,
@@ -46,16 +46,16 @@ class CheckoutAction
 
         return [
             'subscription_id' => $subscription->id,
-            'tier' => $subscription->plan->value,
+            'plan' => $subscription->plan->value,
             'status' => 'active',
         ];
     }
 
-    private function createPaidSubscription(Author $author, SubscriptionTier $tier): array
+    private function createPaidSubscription(Author $author, SubscriptionPlan $plan): array
     {
-        $paymentIntent = $this->stripeService->createPaymentIntent($author, $tier);
+        $paymentIntent = $this->stripeService->createPaymentIntent($author, $plan);
 
-        $subscription = DB::transaction(function () use ($author, $tier, $paymentIntent) {
+        $subscription = DB::transaction(function () use ($author, $plan, $paymentIntent) {
             $activeSubscription = $this->subscriptionRepository->findActiveByAuthor($author);
 
             if ($activeSubscription) {
@@ -64,7 +64,7 @@ class CheckoutAction
 
             return $this->subscriptionRepository->create([
                 'author_id' => $author->id,
-                'plan' => $tier,
+                'plan' => $plan,
                 'status' => SubscriptionStatus::PENDING,
                 'valid_from' => null,
                 'valid_to' => null,
@@ -74,7 +74,7 @@ class CheckoutAction
 
         return [
             'subscription_id' => $subscription->id,
-            'tier' => $subscription->plan->value,
+            'plan' => $subscription->plan->value,
             'status' => 'pending',
             'client_secret' => $paymentIntent->client_secret,
         ];

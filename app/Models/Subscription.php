@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
-use App\Enums\SubscriptionTier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -24,7 +24,7 @@ class Subscription extends Model
     ];
 
     protected $casts = [
-        'plan' => SubscriptionTier::class,
+        'plan' => SubscriptionPlan::class,
         'status' => SubscriptionStatus::class,
         'valid_from' => 'datetime',
         'valid_to' => 'datetime',

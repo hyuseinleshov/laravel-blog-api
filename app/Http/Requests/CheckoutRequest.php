@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\SubscriptionTier;
+use App\Enums\SubscriptionPlan;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,7 +16,7 @@ class CheckoutRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'tier' => ['required', Rule::enum(SubscriptionTier::class)],
+            'plan' => ['required', Rule::enum(SubscriptionPlan::class)],
         ];
     }
 }

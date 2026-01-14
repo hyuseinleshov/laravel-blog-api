@@ -2,8 +2,8 @@
 
 namespace App\Actions;
 
+use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
-use App\Enums\SubscriptionTier;
 use App\Enums\TransactionStatus;
 use App\Models\Author;
 use App\Models\Transaction;
@@ -48,9 +48,9 @@ class ProcessStripeWebhookAction
         }
 
         $authorId = $paymentIntent->metadata->author_id ?? null;
-        $tierValue = $paymentIntent->metadata->tier ?? null;
+        $planValue = $paymentIntent->metadata->plan ?? null;
 
-        if (! $authorId || ! $tierValue) {
+        if (! $authorId || ! $planValue) {
             Log::error('Missing metadata in payment intent', [
                 'payment_intent_id' => $paymentIntent->id,
             ]);
@@ -68,14 +68,14 @@ class ProcessStripeWebhookAction
             return;
         }
 
-        $tier = SubscriptionTier::from($tierValue);
+        $plan = SubscriptionPlan::from($planValue);
 
-        DB::transaction(function () use ($existingSubscription, $author, $tier, $paymentIntent) {
+        DB::transaction(function () use ($existingSubscription, $author, $plan, $paymentIntent) {
             $subscription = $existingSubscription
                 ? $this->updateExistingSubscription($existingSubscription)
-                : $this->createNewSubscription($author, $tier, $paymentIntent->id);
+                : $this->createNewSubscription($author, $plan, $paymentIntent->id);
 
-            $this->createTransaction($author, $subscription, $paymentIntent, $tier);
+            $this->createTransaction($author, $subscription, $paymentIntent, $plan);
         });
     }
 
@@ -90,11 +90,11 @@ class ProcessStripeWebhookAction
         return $subscription->fresh();
     }
 
-    private function createNewSubscription(Author $author, SubscriptionTier $tier, string $paymentIntentId)
+    private function createNewSubscription(Author $author, SubscriptionPlan $plan, string $paymentIntentId)
     {
         return $this->subscriptionRepository->create([
             'author_id' => $author->id,
-            'plan' => $tier,
+            'plan' => $plan,
             'status' => SubscriptionStatus::ACTIVE,
             'valid_from' => now(),
             'valid_to' => now()->addMonth(),
@@ -102,7 +102,7 @@ class ProcessStripeWebhookAction
         ]);
     }
 
-    private function createTransaction(Author $author, $subscription, $paymentIntent, SubscriptionTier $tier): void
+    private function createTransaction(Author $author, $subscription, $paymentIntent, SubscriptionPlan $plan): void
     {
         Transaction::create([
             'author_id' => $author->id,
@@ -110,7 +110,7 @@ class ProcessStripeWebhookAction
             'stripe_payment_id' => $paymentIntent->id,
             'amount' => $paymentIntent->amount,
             'currency' => $paymentIntent->currency,
-            'plan' => $tier,
+            'plan' => $plan,
             'status' => TransactionStatus::COMPLETED,
             'metadata' => [
                 'payment_intent' => $paymentIntent->id,

@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
-use App\Enums\SubscriptionTier;
 use App\Models\Author;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -13,7 +13,7 @@ class SubscriptionFactory extends Factory
     {
         return [
             'author_id' => Author::factory(),
-            'plan' => fake()->randomElement(SubscriptionTier::cases()),
+            'plan' => fake()->randomElement(SubscriptionPlan::cases()),
             'status' => fake()->randomElement(SubscriptionStatus::cases()),
             'valid_from' => now(),
             'valid_to' => now()->addMonth(),
@@ -51,21 +51,21 @@ class SubscriptionFactory extends Factory
     public function basic(): static
     {
         return $this->state(fn (array $attributes) => [
-            'plan' => SubscriptionTier::BASIC,
+            'plan' => SubscriptionPlan::BASIC,
         ]);
     }
 
     public function medium(): static
     {
         return $this->state(fn (array $attributes) => [
-            'plan' => SubscriptionTier::MEDIUM,
+            'plan' => SubscriptionPlan::MEDIUM,
         ]);
     }
 
     public function premium(): static
     {
         return $this->state(fn (array $attributes) => [
-            'plan' => SubscriptionTier::PREMIUM,
+            'plan' => SubscriptionPlan::PREMIUM,
         ]);
     }
 }

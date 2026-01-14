@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AuthorStatus;
-use App\Enums\SubscriptionTier;
+use App\Enums\SubscriptionPlan;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -68,8 +68,8 @@ class Author extends Authenticatable
             ->where('status', 'active');
     }
 
-    public function hasActivePlan(SubscriptionTier $tier): bool
+    public function hasActivePlan(SubscriptionPlan $plan): bool
     {
-        return $this->activeSubscription?->plan === $tier;
+        return $this->activeSubscription?->plan === $plan;
     }
 }

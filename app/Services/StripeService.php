@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Enums\SubscriptionTier;
+use App\Enums\SubscriptionPlan;
 use App\Models\Author;
 use Stripe\Event;
 use Stripe\Exception\SignatureVerificationException;
@@ -24,14 +24,14 @@ class StripeService
         Stripe::setApiKey($this->secretKey);
     }
 
-    public function createPaymentIntent(Author $author, SubscriptionTier $tier): object
+    public function createPaymentIntent(Author $author, SubscriptionPlan $plan): object
     {
         return PaymentIntent::create([
-            'amount' => $tier->getPrice(),
+            'amount' => $plan->getPrice(),
             'currency' => 'eur',
             'metadata' => [
                 'author_id' => $author->id,
-                'tier' => $tier->value,
+                'plan' => $plan->value,
             ],
         ]);
     }

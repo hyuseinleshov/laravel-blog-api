@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-enum SubscriptionTier: string
+enum SubscriptionPlan: string
 {
     case BASIC = 'basic';
     case MEDIUM = 'medium';

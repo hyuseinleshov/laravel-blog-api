@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\SubscriptionTier;
+use App\Enums\SubscriptionPlan;
 use App\Enums\TransactionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -24,7 +24,7 @@ class Transaction extends Model
     ];
 
     protected $casts = [
-        'plan' => SubscriptionTier::class,
+        'plan' => SubscriptionPlan::class,
         'status' => TransactionStatus::class,
         'amount' => 'integer',
         'metadata' => 'array',
