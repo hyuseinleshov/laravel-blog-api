@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Enums\AuthorStatus;
+use App\Enums\SubscriptionTier;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -52,5 +54,22 @@ class Author extends Authenticatable
     public function posts(): HasMany
     {
         return $this->hasMany(Post::class);
+    }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    public function activeSubscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class)
+            ->latestOfMany()
+            ->where('status', 'active');
+    }
+
+    public function hasActivePlan(SubscriptionTier $tier): bool
+    {
+        return $this->activeSubscription?->tier === $tier;
     }
 }
