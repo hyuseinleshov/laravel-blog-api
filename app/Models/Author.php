@@ -70,6 +70,6 @@ class Author extends Authenticatable
 
     public function hasActivePlan(SubscriptionTier $tier): bool
     {
-        return $this->activeSubscription?->tier === $tier;
+        return $this->activeSubscription?->plan === $tier;
     }
 }

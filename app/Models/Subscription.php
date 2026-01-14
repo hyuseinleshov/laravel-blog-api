@@ -16,19 +16,18 @@ class Subscription extends Model
 
     protected $fillable = [
         'author_id',
-        'tier',
+        'plan',
         'status',
-        'started_at',
-        'expires_at',
-        'cancelled_at',
+        'valid_from',
+        'valid_to',
+        'stripe_payment_intent_id',
     ];
 
     protected $casts = [
-        'tier' => SubscriptionTier::class,
+        'plan' => SubscriptionTier::class,
         'status' => SubscriptionStatus::class,
-        'started_at' => 'datetime',
-        'expires_at' => 'datetime',
-        'cancelled_at' => 'datetime',
+        'valid_from' => 'datetime',
+        'valid_to' => 'datetime',
     ];
 
     public function author(): BelongsTo
@@ -45,19 +44,19 @@ class Subscription extends Model
     {
         return $query->where('status', SubscriptionStatus::ACTIVE)
             ->where(function ($q) {
-                $q->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
+                $q->whereNull('valid_to')
+                    ->orWhere('valid_to', '>', now());
             });
     }
 
     public function isExpired(): bool
     {
-        return $this->expires_at !== null && $this->expires_at->isPast();
+        return $this->valid_to !== null && $this->valid_to->isPast();
     }
 
     public function isActive(): bool
     {
         return $this->status === SubscriptionStatus::ACTIVE
-            && ($this->expires_at === null || $this->expires_at->isFuture());
+            && ($this->valid_to === null || $this->valid_to->isFuture());
     }
 }

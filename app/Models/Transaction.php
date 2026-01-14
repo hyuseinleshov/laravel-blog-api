@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SubscriptionTier;
 use App\Enums\TransactionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,17 +15,19 @@ class Transaction extends Model
     protected $fillable = [
         'author_id',
         'subscription_id',
+        'stripe_payment_id',
         'amount',
         'currency',
+        'plan',
         'status',
-        'stripe_payment_intent_id',
-        'paid_at',
+        'metadata',
     ];
 
     protected $casts = [
+        'plan' => SubscriptionTier::class,
         'status' => TransactionStatus::class,
         'amount' => 'integer',
-        'paid_at' => 'datetime',
+        'metadata' => 'array',
     ];
 
     public function author(): BelongsTo

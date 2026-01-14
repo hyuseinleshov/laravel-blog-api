@@ -4,15 +4,15 @@ namespace App\Enums;
 
 enum SubscriptionTier: string
 {
-    case FREE = 'free';
     case BASIC = 'basic';
+    case MEDIUM = 'medium';
     case PREMIUM = 'premium';
 
     public function getPrice(): int
     {
         return match ($this) {
-            self::FREE => 0,
-            self::BASIC => 200,
+            self::BASIC => 0,
+            self::MEDIUM => 200,
             self::PREMIUM => 1000,
         };
     }
@@ -20,8 +20,8 @@ enum SubscriptionTier: string
     public function getMonthlyLimit(): ?int
     {
         return match ($this) {
-            self::FREE => 2,
-            self::BASIC => 10,
+            self::BASIC => 2,
+            self::MEDIUM => 10,
             self::PREMIUM => null,
         };
     }
@@ -29,8 +29,8 @@ enum SubscriptionTier: string
     public function getStripePriceId(): ?string
     {
         return match ($this) {
-            self::FREE => null,
-            self::BASIC => config('services.stripe.prices.basic'),
+            self::BASIC => null,
+            self::MEDIUM => config('services.stripe.prices.medium'),
             self::PREMIUM => config('services.stripe.prices.premium'),
         };
     }
