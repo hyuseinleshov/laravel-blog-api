@@ -4,16 +4,34 @@ namespace App\Policies;
 
 use App\Models\Author;
 use App\Models\Tag;
+use App\Models\User;
+use Illuminate\Contracts\Auth\Authenticatable;
 
 class TagPolicy
 {
-    public function update(Author $author, Tag $tag): bool
+    public function update(Authenticatable $user, Tag $tag): bool
     {
-        return $tag->posts()->count() === 0;
+        if ($user instanceof User) {
+            return $tag->posts()->count() === 0;
+        }
+
+        if ($user instanceof Author) {
+            return $tag->posts()->count() === 0;
+        }
+
+        return false;
     }
 
-    public function delete(Author $author, Tag $tag): bool
+    public function delete(Authenticatable $user, Tag $tag): bool
     {
-        return $tag->posts()->count() === 0;
+        if ($user instanceof User) {
+            return $tag->posts()->count() === 0;
+        }
+
+        if ($user instanceof Author) {
+            return $tag->posts()->count() === 0;
+        }
+
+        return false;
     }
 }
