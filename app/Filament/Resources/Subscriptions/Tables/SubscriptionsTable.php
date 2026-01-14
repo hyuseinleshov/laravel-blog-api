@@ -2,10 +2,13 @@
 
 namespace App\Filament\Resources\Subscriptions\Tables;
 
+use App\Enums\SubscriptionPlan;
+use App\Enums\SubscriptionStatus;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class SubscriptionsTable
@@ -43,7 +46,19 @@ class SubscriptionsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('plan')
+                    ->options([
+                        SubscriptionPlan::BASIC->value => 'Basic',
+                        SubscriptionPlan::MEDIUM->value => 'Medium',
+                        SubscriptionPlan::PREMIUM->value => 'Premium',
+                    ]),
+                SelectFilter::make('status')
+                    ->options([
+                        SubscriptionStatus::PENDING->value => 'Pending',
+                        SubscriptionStatus::ACTIVE->value => 'Active',
+                        SubscriptionStatus::CANCELLED->value => 'Cancelled',
+                        SubscriptionStatus::EXPIRED->value => 'Expired',
+                    ]),
             ])
             ->recordActions([
                 EditAction::make(),

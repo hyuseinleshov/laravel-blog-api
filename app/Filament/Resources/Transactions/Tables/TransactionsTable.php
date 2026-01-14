@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Transactions\Tables;
 
+use App\Enums\SubscriptionPlan;
+use App\Enums\TransactionStatus;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class TransactionsTable
@@ -45,10 +47,25 @@ class TransactionsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('plan')
+                    ->options([
+                        SubscriptionPlan::BASIC->value => 'Basic',
+                        SubscriptionPlan::MEDIUM->value => 'Medium',
+                        SubscriptionPlan::PREMIUM->value => 'Premium',
+                    ]),
+                SelectFilter::make('author')
+                    ->relationship('author', 'name')
+                    ->searchable(),
+                SelectFilter::make('status')
+                    ->options([
+                        TransactionStatus::PENDING->value => 'Pending',
+                        TransactionStatus::COMPLETED->value => 'Completed',
+                        TransactionStatus::FAILED->value => 'Failed',
+                        TransactionStatus::REFUNDED->value => 'Refunded',
+                    ]),
             ])
             ->recordActions([
-                EditAction::make(),
+                //
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
