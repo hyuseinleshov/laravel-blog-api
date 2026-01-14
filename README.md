@@ -195,9 +195,6 @@ The application includes a command to mark expired subscriptions:
 ```bash
 # Manually run the expiry check
 php artisan subscriptions:expire
-
-# Add to cron (production)
-* * * * * cd /path-to-your-project && php artisan schedule:run >> /dev/null 2>&1
 ```
 
 In production, configure your scheduler to run this command daily to mark expired subscriptions.
