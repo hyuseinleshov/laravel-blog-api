@@ -52,6 +52,7 @@ class SubscriptionFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'plan' => SubscriptionPlan::BASIC,
+            'valid_to' => null,
         ]);
     }
 

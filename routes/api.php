@@ -23,6 +23,7 @@ Route::prefix('v1')->group(function () {
         Route::get('auth/me', MeController::class);
 
         Route::post('subscriptions/checkout', [SubscriptionController::class, 'checkout']);
+        Route::get('subscriptions/current', [SubscriptionController::class, 'current']);
 
         Route::apiResource('posts', PostController::class)->except(['index', 'show']);
         Route::apiResource('tags', TagController::class)->except(['index', 'show']);

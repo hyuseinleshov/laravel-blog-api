@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\AuthorStatus;
 use App\Enums\SubscriptionPlan;
+use App\Enums\SubscriptionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -64,8 +65,12 @@ class Author extends Authenticatable
     public function activeSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)
-            ->latestOfMany()
-            ->where('status', 'active');
+            ->latestOfMany('id')
+            ->where('status', SubscriptionStatus::ACTIVE)
+            ->where(function ($query) {
+                $query->whereNull('valid_to')
+                    ->orWhere('valid_to', '>', now());
+            });
     }
 
     public function hasActivePlan(SubscriptionPlan $plan): bool
