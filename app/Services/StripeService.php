@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Enums\SubscriptionPlan;
 use App\Models\Author;
-use Stripe\Event;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\PaymentIntent;
 use Stripe\Stripe;
@@ -47,7 +46,7 @@ class StripeService
         }
     }
 
-    public function constructWebhookEvent(string $payload, string $signature): Event
+    public function constructWebhookEvent(string $payload, string $signature): object
     {
         return Webhook::constructEvent($payload, $signature, $this->webhookSecret);
     }
