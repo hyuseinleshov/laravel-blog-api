@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('author_id')->constrained('authors')->cascadeOnDelete();
             $table->string('plan');
             $table->string('status');
-            $table->timestamp('valid_from');
+            $table->timestamp('valid_from')->nullable();
             $table->timestamp('valid_to')->nullable();
             $table->string('stripe_payment_intent_id')->nullable();
             $table->timestamps();

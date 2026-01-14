@@ -24,7 +24,7 @@ class StripeService
         Stripe::setApiKey($this->secretKey);
     }
 
-    public function createPaymentIntent(Author $author, SubscriptionTier $tier): PaymentIntent
+    public function createPaymentIntent(Author $author, SubscriptionTier $tier): object
     {
         return PaymentIntent::create([
             'amount' => $tier->getPrice(),
