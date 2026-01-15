@@ -2,9 +2,9 @@
 
 namespace App\Exceptions;
 
+use App\Enums\SubscriptionPlan;
 use Exception;
 use Illuminate\Http\JsonResponse;
-use App\Enums\SubscriptionPlan;
 
 class PublishingLimitExceededException extends Exception
 {
@@ -12,7 +12,7 @@ class PublishingLimitExceededException extends Exception
         public readonly int $limit,
         public readonly int $currentCount,
         public readonly SubscriptionPlan $plan,
-        string $message = "",
+        string $message = '',
         int $code = 0,
         ?Throwable $previous = null
     ) {

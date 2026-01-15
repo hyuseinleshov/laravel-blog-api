@@ -11,8 +11,7 @@ class ValidatePublishingLimit
 {
     public function __construct(
         private readonly PostRepository $postRepository,
-    ) {
-    }
+    ) {}
 
     public function handle(Author $author): void
     {
