@@ -77,4 +77,9 @@ class Author extends Authenticatable
     {
         return $this->activeSubscription?->plan === $plan;
     }
+
+    public function getCurrentPlan(): SubscriptionPlan
+    {
+        return $this->activeSubscription?->plan ?? SubscriptionPlan::BASIC;
+    }
 }
