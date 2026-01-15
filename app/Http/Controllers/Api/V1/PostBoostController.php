@@ -12,9 +12,7 @@ use Illuminate\Http\Response;
 
 class PostBoostController extends Controller
 {
-    public function __construct(private readonly BoostPostAction $boostPostAction)
-    {
-    }
+    public function __construct(private readonly BoostPostAction $boostPostAction) {}
 
     public function __invoke(BoostPostRequest $request, Post $post): JsonResponse
     {
