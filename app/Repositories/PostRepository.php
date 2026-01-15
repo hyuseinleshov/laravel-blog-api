@@ -2,7 +2,10 @@
 
 namespace App\Repositories;
 
+use App\Enums\PostStatus;
+use App\Models\Author;
 use App\Models\Post;
+use Carbon\Carbon;
 
 class PostRepository
 {
@@ -24,5 +27,22 @@ class PostRepository
     public function delete(Post $post): bool
     {
         return $post->delete();
+    }
+
+    public function countPublishedInPeriod(Author $author, Carbon $start, Carbon $end): int
+    {
+        return Post::where('author_id', $author->id)
+            ->where('status', PostStatus::PUBLISHED)
+            ->whereBetween('published_at', [$start, $end])
+            ->count();
+    }
+
+    public function countPublishedInCurrentMonth(Author $author): int
+    {
+        return $this->countPublishedInPeriod(
+            $author,
+            now()->startOfMonth(),
+            now()->endOfMonth()
+        );
     }
 }
