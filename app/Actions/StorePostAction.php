@@ -21,6 +21,7 @@ class StorePostAction
 
         if ($data['status'] === PostStatus::PUBLISHED->value) {
             $this->validatePublishingLimit->handle($author);
+            $data['published_at'] = now();
         }
 
         $post = $this->postRepository->create([
@@ -28,6 +29,7 @@ class StorePostAction
             'content' => $data['content'],
             'status' => $data['status'],
             'author_id' => $authorId,
+            'published_at' => $data['published_at'] ?? null,
         ]);
 
         if (isset($data['tag_ids'])) {

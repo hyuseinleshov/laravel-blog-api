@@ -17,10 +17,12 @@ class Post extends Model
         'content',
         'status',
         'author_id',
+        'published_at',
     ];
 
     protected $casts = [
         'status' => PostStatus::class,
+        'published_at' => 'datetime',
     ];
 
     public function author(): BelongsTo

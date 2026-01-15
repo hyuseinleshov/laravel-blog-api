@@ -416,3 +416,42 @@ test('posts from previous month do not count toward current month', function () 
 
     $response->assertCreated();
 });
+
+test('creating published post sets published_at timestamp', function () {
+    $author = Author::factory()->create();
+    Subscription::factory()->create([
+        'author_id' => $author->id,
+        'plan' => SubscriptionPlan::BASIC,
+        'status' => SubscriptionStatus::ACTIVE,
+        'valid_from' => now()->subDays(5),
+        'valid_to' => now()->addDays(25),
+    ]);
+
+    $response = $this->actingAs($author, 'sanctum')
+        ->postJson('/api/v1/posts', validPostData());
+
+    $response->assertCreated();
+
+    $post = Post::where('author_id', $author->id)->first();
+    expect($post->published_at)->not->toBeNull();
+    expect($post->published_at)->toBeInstanceOf(\Carbon\Carbon::class);
+});
+
+test('creating draft does not set published_at timestamp', function () {
+    $author = Author::factory()->create();
+    Subscription::factory()->create([
+        'author_id' => $author->id,
+        'plan' => SubscriptionPlan::BASIC,
+        'status' => SubscriptionStatus::ACTIVE,
+        'valid_from' => now()->subDays(5),
+        'valid_to' => now()->addDays(25),
+    ]);
+
+    $response = $this->actingAs($author, 'sanctum')
+        ->postJson('/api/v1/posts', validPostData(['status' => PostStatus::DRAFT->value]));
+
+    $response->assertCreated();
+
+    $post = Post::where('author_id', $author->id)->first();
+    expect($post->published_at)->toBeNull();
+});
