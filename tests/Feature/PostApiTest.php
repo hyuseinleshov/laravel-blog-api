@@ -9,8 +9,6 @@ beforeEach(function () {
     $this->actingAs($this->author, 'sanctum');
 });
 
-
-
 test('can get all posts', function () {
     Post::factory()->count(3)->create(['author_id' => $this->author->id]);
 
