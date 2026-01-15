@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\SubscriptionPlan;
 use App\Models\Author;
+use App\Models\Post;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\PaymentIntent;
 use Stripe\Stripe;
@@ -46,8 +47,18 @@ class StripeService
         }
     }
 
-    public function constructWebhookEvent(string $payload, string $signature): object
+    public function createBoostPaymentIntent(Post $post): object
     {
-        return Webhook::constructEvent($payload, $signature, $this->webhookSecret);
+        $author = $post->author;
+
+        return PaymentIntent::create([
+            'amount' => config('services.stripe.boost_price'),
+            'currency' => 'eur',
+            'metadata' => [
+                'post_id' => $post->id,
+                'author_id' => $author->id,
+                'type' => 'boost',
+            ],
+        ]);
     }
 }

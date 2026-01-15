@@ -42,6 +42,7 @@ return [
         'prices' => [
             'medium' => env('STRIPE_MEDIUM_PRICE_ID'),
             'premium' => env('STRIPE_PREMIUM_PRICE_ID'),
+            'boost_price' => env('STRIPE_BOOST_PRICE', 100), // Default to 100 cents (€1)
         ],
     ],
 
