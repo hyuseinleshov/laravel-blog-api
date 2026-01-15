@@ -18,6 +18,8 @@ class Post extends Model
         'status',
         'author_id',
         'published_at',
+        'boosted_at',
+        'boost_transaction_id',
     ];
 
     protected $casts = [
