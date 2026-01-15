@@ -9,14 +9,7 @@ beforeEach(function () {
     $this->actingAs($this->author, 'sanctum');
 });
 
-function validPostData(array $overrides = []): array
-{
-    return array_merge([
-        'title' => 'Test Post Title',
-        'content' => str_repeat('a', 200),
-        'status' => PostStatus::PUBLISHED->value,
-    ], $overrides);
-}
+
 
 test('can get all posts', function () {
     Post::factory()->count(3)->create(['author_id' => $this->author->id]);
