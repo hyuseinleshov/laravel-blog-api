@@ -13,6 +13,7 @@ This project demonstrates Laravel development practices including clean architec
 - **Tags System**: Many-to-many relationship with posts
 - **User Attribution**: Posts are associated with authors
 - **Transaction History**: Complete payment tracking and audit trail
+- **Publishing Limits**: Enforces monthly post limits based on subscription plan (Basic: 2, Medium: 10, Premium: Unlimited), resets each calendar month, with a 403 Forbidden error response for violations.
 - **Rate Limiting**: Throttled authentication endpoints (5 requests per minute)
 - **Admin Panel**: Filament-powered UI for managing posts, tags, subscriptions, and transactions
 - **Comprehensive Testing**: Feature tests with Pest framework covering all subscription flows
@@ -139,6 +140,29 @@ Basic plan is free and activated immediately. Paid plans (Medium/Premium) return
 - **Token Revocation**: Immediate access termination on logout
 
 For detailed API requests, responses, and interactive testing, see the Postman collection below.
+
+### Error Responses
+
+When an author attempts to publish a post and exceeds their monthly publishing limit based on their subscription plan, the API will return a `403 Forbidden` status with a structured JSON error response.
+
+**Error Code:** `publishing_limit_exceeded`
+
+**Example JSON Response:**
+```json
+{
+    "message": "Monthly publishing limit reached. Your Basic plan allows 2 posts per month. You have published 2 posts this month. Upgrade to publish more.",
+    "error": {
+        "code": "publishing_limit_exceeded",
+        "details": {
+            "plan": "basic",
+            "limit": 2,
+            "current_count": 2
+        }
+    }
+}
+```
+
+**Client Behavior:** Clients should parse this error response to inform the user about the exceeded limit, their current plan, and suggest upgrading their subscription to publish more posts.
 
 ## Admin Panel
 
