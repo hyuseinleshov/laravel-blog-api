@@ -18,6 +18,7 @@ class PostResource extends JsonResource
             'tags' => TagResource::collection($this->whenLoaded('tags')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+            'is_boosted' => (bool) $this->boosted_at,
         ];
     }
 }
