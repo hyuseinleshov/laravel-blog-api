@@ -118,9 +118,16 @@ Basic plan is free and activated immediately. Paid plans (Medium/Premium) return
 **Posts:**
 - `GET /api/v1/posts` - List all posts (public)
 - `GET /api/v1/posts/{id}` - Get single post (public)
-- `POST /api/v1/posts` - Create post (authenticated, auto-assigned to author)
-- `PUT /api/v1/posts/{id}` - Update post (authenticated, author only)
+- `POST /api/v1/posts` - Create post (authenticated, auto-assigned to author, subject to plan limits)
+- `PUT /api/v1/posts/{id}` - Update post (authenticated, author only, publishing drafts subject to limits)
 - `DELETE /api/v1/posts/{id}` - Delete post (authenticated, author only)
+
+**Publishing Limits:**
+Posts are subject to monthly publishing limits based on subscription plans (resets each calendar month):
+- Creating published posts checks the limit
+- Publishing a draft (status change from `draft` to `published`) checks the limit
+- Editing already published posts does NOT recheck the limit
+- Drafts are unlimited and do not count toward limits
 
 **Tags:**
 - `GET /api/v1/tags` - List all tags (public)
@@ -197,6 +204,9 @@ php artisan test --filter Subscription
 
 # Run webhook tests
 php artisan test --filter Webhook
+
+# Run publishing limits tests
+php artisan test --filter PublishingLimits
 ```
 
 
