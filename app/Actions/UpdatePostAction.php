@@ -18,7 +18,7 @@ class UpdatePostAction
     public function execute(Post $post, array $data): Post
     {
         $wasNotPublished = $post->status !== PostStatus::PUBLISHED;
-        $becomingPublished = isset($data['status']) && $data['status'] === PostStatus::PUBLISHED;
+        $becomingPublished = isset($data['status']) && $data['status'] === PostStatus::PUBLISHED->value;
 
         if ($wasNotPublished && $becomingPublished) {
             $this->validatePublishingLimit->handle($post->author);

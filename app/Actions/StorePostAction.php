@@ -19,7 +19,7 @@ class StorePostAction
     {
         $author = Author::findOrFail($authorId);
 
-        if ($data['status'] === PostStatus::PUBLISHED) {
+        if ($data['status'] === PostStatus::PUBLISHED->value) {
             $this->validatePublishingLimit->handle($author);
         }
 
