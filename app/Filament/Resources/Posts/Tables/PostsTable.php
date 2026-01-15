@@ -22,6 +22,10 @@ class PostsTable
                 TextColumn::make('author.name')
                     ->sortable()
                     ->searchable(),
+                TextColumn::make('boosted_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
