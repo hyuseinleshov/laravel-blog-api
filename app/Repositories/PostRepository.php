@@ -37,6 +37,11 @@ class PostRepository
             ->count();
     }
 
+    /**
+     * Count published posts in the current calendar month.
+     * Period: From the 1st to the last day of the current month.
+     * This resets at month boundaries (not rolling 30 days).
+     */
     public function countPublishedInCurrentMonth(Author $author): int
     {
         return $this->countPublishedInPeriod(
