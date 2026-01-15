@@ -23,6 +23,7 @@ class Post extends Model
     protected $casts = [
         'status' => PostStatus::class,
         'published_at' => 'datetime',
+        'boosted_at' => 'datetime',
     ];
 
     public function author(): BelongsTo
