@@ -2,10 +2,44 @@
 	"info": {
 		"_postman_id": "hyusein-blog-api-2026",
 		"name": "Hyusein Blog API",
-		"description": "Complete API testing collection for Laravel Blog API\n\n## Quick Start\n\n1. Import this collection into Postman\n2. Set the `base_url` collection variable to your API base URL (default: `http://localhost:8000/api/v1`)\n3. Execute requests in order: Auth → Subscriptions → Articles → Boost\n4. Token management is automatic via test scripts\n\n## Execution Flow\n\n1. **Auth**: Register → Login (captures token) → Get Current User → Logout\n2. **Subscriptions**: Checkout Basic/Medium/Premium → View Active Subscription\n3. **Articles**: Create → List → Update → Delete (demonstrates publishing limits)\n4. **Boost**: Boost Article → Verify Priority Ordering\n\n## Variables\n\n- `base_url`: API base URL (collection variable)\n- `auth_token`: Captured automatically from login\n- `author_id`: Captured from registration/login\n- `article_id`: Captured from article creation\n- `subscription_id`: Captured from checkout\n\n## Subscription Plans\n\n- **Basic**: €0 (free), 2 articles/month - auto-assigned on registration\n- **Medium**: €2 (200 cents), 10 articles/month\n- **Premium**: €10 (1000 cents), unlimited articles\n\n## Stripe Testing\n\nFor paid subscriptions and boost, use Stripe test card:\n- Card: `4242 4242 4242 4242`\n- Expiry: Any future date\n- CVC: Any 3 digits\n- ZIP: Any 5 digits\n\nNote: Paid plans return `client_secret` for frontend payment confirmation. In production flow, the frontend would use Stripe.js to confirm the payment.",
+		"description": "Complete API testing collection for Laravel Blog API\n\n## Quick Start\n\n1. Import this collection into Postman\n2. Set the `base_url` collection variable to your API base URL (default: `http://localhost:8000/api/v1`)\n3. Run database migration: `php artisan migrate:fresh --seed`\n4. For complete flow: Execute folders in order: Setup & Cleanup \u2192 Multi-Author Demo \u2192 Tags \u2192 Workarounds\n5. For basic flow: Execute folders in order: Auth \u2192 Subscriptions \u2192 Articles \u2192 Boost\n\n## Execution Strategies\n\n### Strategy A: Single Author Flow (Basic Testing)\nExecute folders: Auth \u2192 Subscriptions \u2192 Articles\n- Demonstrates publishing limits\n- Tests Basic plan functionality\n- Does NOT demonstrate tier ordering or paid plans\n\n### Strategy B: Multi-Author Flow (Complete Testing)\nExecute folders: Multi-Author Demo \u2192 Tags \u2192 Workarounds\n- Creates 3 authors with different subscription plans\n- Demonstrates plan-based article ordering\n- Shows boost priority over subscription tiers\n- Requires Stripe webhook simulation for paid plans\n\n### Strategy C: Fresh Start\n1. Execute \"Setup & Cleanup\" \u2192 \"Fresh Migration\"\n2. Follow Strategy A or B\n\n## Variables\n\n### Automatic Variables (Captured by Test Scripts)\n- `auth_token`: Current session token (overwrites on each login)\n- `author_id`: Current author ID (overwrites on each registration)\n- `article_id`: Current article ID (overwrites on each creation)\n- `subscription_id`: Current subscription ID\n- `client_secret`: Stripe payment client secret\n- `boost_client_secret`: Stripe boost payment client secret\n\n### Multi-Author Variables\n- `author_id_1`, `auth_token_1`: Basic plan author\n- `author_id_2`, `auth_token_2`: Medium plan author\n- `author_id_3`, `auth_token_3`: Premium plan author\n- `article_id_1`, `article_id_2`, `article_id_3`: Articles from each author\n\n## Subscription Plans\n\n- **Basic**: \u20ac0 (free), 2 articles/month - auto-assigned on registration\n- **Medium**: \u20ac2 (200 cents), 10 articles/month\n- **Premium**: \u20ac10 (1000 cents), unlimited articles\n\n## Stripe Testing\n\n### Test Cards\nFor paid subscriptions and boost, use Stripe test card:\n- Card: `4242 4242 4242 4242`\n- Expiry: Any future date (e.g., 12/34)\n- CVC: Any 3 digits (e.g., 123)\n- ZIP: Any 5 digits (e.g., 12345)\n\n### Webhook Testing (REQUIRED for Paid Plans)\n\nPaid subscriptions and boosts require Stripe webhook confirmation. Choose one method:\n\n#### Method 1: Stripe CLI (Recommended for Local Testing)\n```bash\n# Install Stripe CLI: https://stripe.com/docs/stripe-cli\nstripe login\n\n# Forward webhooks to local API\nstripe listen --forward-to http://localhost:8000/api/v1/webhooks/stripe\n\n# Copy the webhook signing secret (whsec_...)\n# Add to .env file:\nSTRIPE_WEBHOOK_SECRET=whsec_...\n\n# Restart Laravel server\nphp artisan serve\n\n# Trigger test payment (in another terminal)\nstripe trigger payment_intent.succeeded\n```\n\n#### Method 2: Manual Webhook Simulation (Postman)\nUse requests in \"Workarounds\" folder:\n- \"Simulate Webhook - Activate Subscription\"\n- \"Simulate Webhook - Activate Boost\"\n\nThese manually call the webhook endpoint with valid Stripe test payloads.\n\n#### Method 3: Database Direct Update (Testing Only)\nUse \"Workarounds\" \u2192 \"Direct DB Update\" requests for quick testing without Stripe setup.\n\n### Payment Flow\n1. Checkout creates PENDING subscription/boost and returns `client_secret`\n2. Frontend confirms payment using Stripe.js (NOT in Postman scope)\n3. Stripe webhook activates subscription/boost (PENDING \u2192 ACTIVE)\n4. Subscription becomes valid for 1 month\n\n## Important Notes\n\n### Publishing Limits\n- **Calendar Month Based**: Limits reset on 1st of each month (not rolling 30 days)\n- **Draft Articles**: Unlimited, do NOT count toward limit\n- **Published Articles**: Count toward monthly limit immediately\n- **Editing Published**: Does NOT recheck limit (only initial publishing checks)\n- **Month Boundary**: Running tests near month end may show unexpected behavior as limits reset\n\n### Variable Overwrites\n- Variables like `auth_token`, `author_id`, `article_id` are overwritten on each capture\n- For multi-author scenarios, use numbered variables (`author_id_1`, `author_id_2`, etc.)\n- Single-author flow: Safe to reuse overwritten variables sequentially\n- Multi-author flow: Must use numbered variables to preserve all author contexts\n\n### Database State\n- Collection modifies database (creates authors, articles, subscriptions)\n- Running collection multiple times will fail (duplicate emails)\n- Use \"Setup & Cleanup\" \u2192 \"Fresh Migration\" to reset between runs\n- Alternative: `php artisan migrate:fresh --seed` in terminal\n\n### Stripe Sandbox Mode\n- All payments use Stripe test mode (no real charges)\n- Test card payments always succeed\n- Webhooks must be forwarded or simulated for completion\n- Production deployment requires live Stripe keys\n\n## Alternative: Database Seeding\n\nInstead of running the full collection, you can seed test data:\n\n```bash\n# Create sample data (authors, articles, subscriptions)\nphp artisan db:seed\n\n# Create Filament admin user\nphp artisan make:filament-user\n\n# View seeded data at /admin or via API endpoints\n```\n\nSeeding is faster but doesn't demonstrate API flow or validation.\n\n## Troubleshooting\n\n### Issue: Paid subscription stays PENDING\n**Solution**: Run Stripe webhook simulation (see Stripe Testing section)\n\n### Issue: Boost doesn't affect article ordering\n**Solution**: Activate boost via webhook or database update\n\n### Issue: Cannot create more published articles\n**Solution**: This is expected! Demonstrates publishing limits. Options:\n1. Wait until next calendar month\n2. Upgrade subscription plan\n3. Create drafts instead (unlimited)\n\n### Issue: Email already registered\n**Solution**: Run \"Fresh Migration\" or use different email addresses\n\n### Issue: Token expired/invalid\n**Solution**: Run Login request again to get fresh token\n\n## Folder Structure\n\n- **Setup & Cleanup**: Database reset and cleanup utilities\n- **Auth**: Single author registration and authentication\n- **Multi-Author Demo**: 3 authors with different plans for tier ordering\n- **Subscriptions**: Plan checkout and status checking\n- **Articles**: CRUD operations and publishing limit demonstration\n- **Tags**: Tag management (optional, referenced in articles)\n- **Boost**: Article promotion to top position\n- **Workarounds**: Manual webhook triggers and database shortcuts\n",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
+		{
+			"name": "Setup & Cleanup",
+			"item": [
+				{
+					"name": "Fresh Migration",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{base_url}}/../../artisan",
+							"host": [
+								"{{base_url}}"
+							]
+						},
+						"description": "Fresh database migration and seeding.\n\n**NOTE**: This is a placeholder. Postman cannot execute artisan commands directly.\n\n**To Reset Database:**\nRun in terminal:\n```bash\nphp artisan migrate:fresh --seed\n```\n\nThis will:\n1. Drop all database tables\n2. Run all migrations from scratch\n3. Seed sample data\n4. Reset auto-increment IDs\n\n**When to Use:**\n- Before running collection for first time\n- After collection execution to clean up test data\n- When email already exists errors occur\n- To reset publishing limit counters\n\n**Alternative**: Use the bash command provided in collection description.\n"
+					},
+					"response": []
+				}
+			],
+			"description": "Database reset and cleanup utilities for fresh test runs.\n\n**Primary Method**: Terminal Commands\nPostman cannot execute terminal commands directly. Use these bash commands:\n\n```bash\n# Complete reset (recommended)\nphp artisan migrate:fresh --seed\n\n# Create admin user for Filament panel\nphp artisan make:filament-user\n\n# Manual cleanup (without losing all data)\nphp artisan db:seed --class=CleanupSeeder  # If cleanup seeder exists\n\n# Force subscription expiry (test expiry behavior)\nphp artisan subscriptions:expire\n```\n\n**Why Reset?**\n- Email uniqueness constraints prevent duplicate registrations\n- Publishing limits accumulate across test runs\n- Article IDs increase, making collection variables stale\n- Fresh start ensures predictable test outcomes\n\n**After Reset:**\n1. All collection variables are cleared (auth tokens, IDs)\n2. Auto-increment counters reset to 1\n3. Test data is removed\n4. Ready for clean collection execution\n"
+		},
 		{
 			"name": "Auth",
 			"item": [
@@ -216,6 +250,701 @@
 			"description": "Authentication endpoints for author registration, login, and session management.\n\n**Flow:**\n1. **Register Author** - Create new account (auto-assigns Basic subscription)\n2. **Login** - Get authentication token (captured automatically)\n3. **Get Current User** - Verify authentication and get profile\n4. **Logout** - Revoke token and end session\n\n**Rate Limiting:** All auth endpoints are limited to 5 requests per minute to prevent brute force attacks.\n\n**Token Management:** The authentication token is automatically captured from the Login response and applied to all subsequent authenticated requests via the `{{auth_token}}` variable."
 		},
 		{
+			"name": "Multi-Author Demo",
+			"item": [
+				{
+					"name": "Register Author 1 (Basic)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('author_id_1', response.data.id);",
+									"    console.log('Author 1 (Basic) registered with ID:', response.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Basic Author\",\n    \"email\": \"basic@example.com\",\n    \"password\": \"password123\",\n    \"password_confirmation\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Register first author (will have Basic plan by default)."
+					},
+					"response": []
+				},
+				{
+					"name": "Login Author 1",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('auth_token_1', response.token);",
+									"    pm.collectionVariables.set('author_id_1', response.author.id);",
+									"    console.log('Author 1 logged in. Token captured.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"basic@example.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Login as Author 1 (Basic plan)."
+					},
+					"response": []
+				},
+				{
+					"name": "Author 1 - Create Article",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('article_id_1', response.data.id);",
+									"    console.log('Author 1 article created with ID:', response.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token_1}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Laravel Basics for Beginners - A Comprehensive Guide\",\n    \"content\": \"Laravel is an elegant PHP framework that makes web development a joy. This comprehensive guide covers everything you need to know to get started with Laravel, from installation to creating your first application. We'll explore routing, controllers, views, and the powerful Eloquent ORM that makes database interactions seamless.\",\n    \"status\": \"published\",\n    \"tag_ids\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/articles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles"
+							]
+						},
+						"description": "Create published article as Author 1 (Basic plan). This article will appear LAST in default ordering (after Premium and Medium authors)."
+					},
+					"response": []
+				},
+				{
+					"name": "Register Author 2 (Medium)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('author_id_2', response.data.id);",
+									"    console.log('Author 2 (Medium) registered with ID:', response.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Medium Author\",\n    \"email\": \"medium@example.com\",\n    \"password\": \"password123\",\n    \"password_confirmation\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Register second author (will be upgraded to Medium plan)."
+					},
+					"response": []
+				},
+				{
+					"name": "Login Author 2",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('auth_token_2', response.token);",
+									"    pm.collectionVariables.set('author_id_2', response.author.id);",
+									"    console.log('Author 2 logged in. Token captured.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"medium@example.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Login as Author 2 (will have Medium plan)."
+					},
+					"response": []
+				},
+				{
+					"name": "Author 2 - Checkout Medium Plan",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('subscription_id_2', response.subscription_id);",
+									"    console.log('Medium subscription created with ID:', response.subscription_id);",
+									"    console.log('STATUS: PENDING - Must activate via webhook or workaround');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token_2}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan\": \"medium\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscriptions/checkout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"subscriptions",
+								"checkout"
+							]
+						},
+						"description": "Checkout Medium plan for Author 2. Returns PENDING status. Must be activated via webhook (see Workarounds folder)."
+					},
+					"response": []
+				},
+				{
+					"name": "Author 2 - Create Article",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('article_id_2', response.data.id);",
+									"    console.log('Author 2 article created with ID:', response.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token_2}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Advanced Laravel Techniques - Mastering the Framework\",\n    \"content\": \"Take your Laravel skills to the next level with these advanced techniques. Learn about service containers, facades, contracts, and how to build truly scalable applications. We'll dive deep into Laravel's architecture and explore best practices used by professional developers in production environments.\",\n    \"status\": \"published\",\n    \"tag_ids\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/articles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles"
+							]
+						},
+						"description": "Create published article as Author 2 (Medium plan). After activating Medium subscription, this article will appear SECOND in ordering (after Premium, before Basic)."
+					},
+					"response": []
+				},
+				{
+					"name": "Register Author 3 (Premium)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('author_id_3', response.data.id);",
+									"    console.log('Author 3 (Premium) registered with ID:', response.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Premium Author\",\n    \"email\": \"premium@example.com\",\n    \"password\": \"password123\",\n    \"password_confirmation\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Register third author (will be upgraded to Premium plan)."
+					},
+					"response": []
+				},
+				{
+					"name": "Login Author 3",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('auth_token_3', response.token);",
+									"    pm.collectionVariables.set('author_id_3', response.author.id);",
+									"    console.log('Author 3 logged in. Token captured.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"premium@example.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Login as Author 3 (will have Premium plan)."
+					},
+					"response": []
+				},
+				{
+					"name": "Author 3 - Checkout Premium Plan",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('subscription_id_3', response.subscription_id);",
+									"    console.log('Premium subscription created with ID:', response.subscription_id);",
+									"    console.log('STATUS: PENDING - Must activate via webhook or workaround');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token_3}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan\": \"premium\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscriptions/checkout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"subscriptions",
+								"checkout"
+							]
+						},
+						"description": "Checkout Premium plan for Author 3. Returns PENDING status. Must be activated via webhook (see Workarounds folder)."
+					},
+					"response": []
+				},
+				{
+					"name": "Author 3 - Create Article",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('article_id_3', response.data.id);",
+									"    console.log('Author 3 article created with ID:', response.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token_3}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Laravel Enterprise Architecture - Building at Scale\",\n    \"content\": \"Building enterprise-level applications with Laravel requires careful architectural planning and adherence to best practices. This in-depth article explores domain-driven design, CQRS patterns, event sourcing, and microservices architecture within the Laravel ecosystem. Learn how Fortune 500 companies structure their Laravel applications for maximum scalability, maintainability, and team collaboration.\",\n    \"status\": \"published\",\n    \"tag_ids\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/articles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles"
+							]
+						},
+						"description": "Create published article as Author 3 (Premium plan). After activating Premium subscription, this article will appear FIRST in ordering (before Medium and Basic)."
+					},
+					"response": []
+				},
+				{
+					"name": "List Articles - Verify Tier Ordering",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/articles?include=author&filter[status]=published",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles"
+							],
+							"query": [
+								{
+									"key": "include",
+									"value": "author"
+								},
+								{
+									"key": "filter[status]",
+									"value": "published"
+								}
+							]
+						},
+						"description": "Verify subscription tier ordering.\n\n**Expected Order (after activating paid subscriptions):**\n1. Author 3 article (Premium plan) - FIRST\n2. Author 2 article (Medium plan) - SECOND\n3. Author 1 article (Basic plan) - THIRD\n\n**Before Activation:**\nAll authors will show Basic plan because paid subscriptions are PENDING.\n\n**To Activate:**\n1. Run \"Workarounds\" \u2192 \"Simulate Webhook - Activate Subscription\" for each paid author\n2. OR use Stripe CLI to forward real webhooks\n3. OR manually update database (see Workarounds folder)\n\n**Verification:**\nCheck response array ordering and `author.subscription.plan` field for each article.\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Boost Author 1 Article",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    console.log('Boost payment initiated for article:', pm.collectionVariables.get('article_id_1'));",
+									"    console.log('Must activate via webhook or workaround');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token_1}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{base_url}}/articles/{{article_id_1}}/boost",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles",
+								"{{article_id_1}}",
+								"boost"
+							]
+						},
+						"description": "Boost Author 1's article (Basic plan).\n\nAfter boost activation, this article will appear FIRST, even though author has Basic plan. This demonstrates that boost supersedes subscription tier ordering.\n\n**Expected Final Order:**\n1. Author 1 article (Basic, BOOSTED) - FIRST \u2b50\n2. Author 3 article (Premium) - SECOND\n3. Author 2 article (Medium) - THIRD\n4. Other Basic articles - FOURTH\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Final - Verify Boost Priority",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/articles?include=author&filter[status]=published",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles"
+							],
+							"query": [
+								{
+									"key": "include",
+									"value": "author"
+								},
+								{
+									"key": "filter[status]",
+									"value": "published"
+								}
+							]
+						},
+						"description": "Final verification: Boosted Basic article appears FIRST.\n\n**Expected Order (after ALL activations):**\n1. \u2b50 Author 1 article (Basic, BOOSTED) - TOP POSITION\n2. Author 3 article (Premium, not boosted)\n3. Author 2 article (Medium, not boosted)\n4. Other Basic articles (not boosted)\n\n**Key Insight:**\nBoost allows ANY author (even Basic plan) to achieve top visibility through one-time payment, superseding monthly subscription tier.\n\n**Check These Fields:**\n- `is_boosted`: true for Author 1's article\n- `author.subscription.plan`: Shows each author's plan\n- Array order: Boosted article appears first\n"
+					},
+					"response": []
+				}
+			],
+			"description": "Complete multi-author demonstration showing subscription tiers and boost priority.\n\n**Purpose:**\nDemonstrate the full article ordering system:\n1. Premium articles appear before Medium\n2. Medium articles appear before Basic\n3. Boosted articles appear before ALL others (regardless of plan)\n\n**Execution Steps:**\n1. Execute all requests in order\n2. After creating subscriptions, activate them via Workarounds folder\n3. Verify tier ordering with \"List Articles - Verify Tier Ordering\"\n4. Boost Basic author's article\n5. Activate boost via Workarounds folder\n6. Verify boost supersedes tier with \"Final - Verify Boost Priority\"\n\n**Activation Required:**\nPaid subscriptions (Medium, Premium) and boost require webhook activation:\n- Use Stripe CLI forwarding (recommended)\n- OR manual webhook simulation (Workarounds folder)\n- OR direct database updates (Workarounds folder)\n\n**Variables Used:**\n- `author_id_1`, `auth_token_1`, `article_id_1`: Basic author\n- `author_id_2`, `auth_token_2`, `article_id_2`: Medium author\n- `author_id_3`, `auth_token_3`, `article_id_3`: Premium author\n- `subscription_id_2`, `subscription_id_3`: Paid subscriptions\n\n**Expected Timeline:**\nWithout activation: All show Basic plan (default)\nAfter activation: Proper tier ordering appears\nAfter boost activation: Boosted Basic article jumps to top\n"
+		},
+		{
 			"name": "Subscriptions",
 			"item": [
 				{
@@ -284,7 +1013,7 @@
 								"checkout"
 							]
 						},
-						"description": "Checkout Basic subscription plan (free tier).\n\n**Request:**\n- `plan`: \"basic\" (required)\n\n**Response (201):**\n- `subscription_id`: ID of the created subscription\n- `plan`: \"basic\"\n- `status`: \"active\" (immediately activated)\n\n**Plan Details:**\n- Price: €0 (free)\n- Publishing Limit: 2 articles per month\n- Validity: Unlimited (never expires)\n\n**Behavior:**\n- Basic plan activates immediately\n- No payment required\n- Auto-assigned on registration\n- Previous subscriptions are automatically expired\n\n**Use Case:**\n- Downgrade from paid plan\n- Re-activate after cancellation\n- Test subscription system without payment"
+						"description": "Checkout Basic subscription plan (free tier).\n\n**Request:**\n- `plan`: \"basic\" (required)\n\n**Response (201):**\n- `subscription_id`: ID of the created subscription\n- `plan`: \"basic\"\n- `status`: \"active\" (immediately activated)\n\n**Plan Details:**\n- Price: \u20ac0 (free)\n- Publishing Limit: 2 articles per month\n- Validity: Unlimited (never expires)\n\n**Behavior:**\n- Basic plan activates immediately\n- No payment required\n- Auto-assigned on registration\n- Previous subscriptions are automatically expired\n\n**Use Case:**\n- Downgrade from paid plan\n- Re-activate after cancellation\n- Test subscription system without payment"
 					},
 					"response": []
 				},
@@ -359,7 +1088,7 @@
 								"checkout"
 							]
 						},
-						"description": "Checkout Medium subscription plan (paid tier).\n\n**Request:**\n- `plan`: \"medium\" (required)\n\n**Response (201):**\n- `subscription_id`: ID of the created subscription\n- `plan`: \"medium\"\n- `status`: \"pending\" (awaiting payment confirmation)\n- `client_secret`: Stripe PaymentIntent client secret for payment confirmation\n\n**Plan Details:**\n- Price: €2 (200 cents)\n- Publishing Limit: 10 articles per month\n- Validity: 1 month from payment confirmation\n\n**Payment Flow:**\n1. API creates subscription in PENDING status\n2. API creates Stripe PaymentIntent and returns `client_secret`\n3. Frontend uses Stripe.js to confirm payment with test card:\n   - Card: `4242 4242 4242 4242`\n   - Expiry: Any future date (e.g., 12/34)\n   - CVC: Any 3 digits (e.g., 123)\n   - ZIP: Any 5 digits (e.g., 12345)\n4. Stripe webhook confirms payment and activates subscription (PENDING → ACTIVE)\n5. Subscription becomes valid for 1 month\n\n**Note:** In this collection, we're only testing the checkout endpoint. The payment confirmation would happen in a frontend application using Stripe.js. For testing purposes, you can manually trigger the webhook or use Stripe CLI."
+						"description": "Checkout Medium subscription plan (paid tier).\n\n**Request:**\n- `plan`: \"medium\" (required)\n\n**Response (201):**\n- `subscription_id`: ID of the created subscription\n- `plan`: \"medium\"\n- `status`: \"pending\" (awaiting payment confirmation)\n- `client_secret`: Stripe PaymentIntent client secret for payment confirmation\n\n**Plan Details:**\n- Price: \u20ac2 (200 cents)\n- Publishing Limit: 10 articles per month\n- Validity: 1 month from payment confirmation\n\n**Payment Flow:**\n1. API creates subscription in PENDING status\n2. API creates Stripe PaymentIntent and returns `client_secret`\n3. Frontend uses Stripe.js to confirm payment with test card:\n   - Card: `4242 4242 4242 4242`\n   - Expiry: Any future date (e.g., 12/34)\n   - CVC: Any 3 digits (e.g., 123)\n   - ZIP: Any 5 digits (e.g., 12345)\n4. Stripe webhook confirms payment and activates subscription (PENDING \u2192 ACTIVE)\n5. Subscription becomes valid for 1 month\n\n**Note:** In this collection, we're only testing the checkout endpoint. The payment confirmation would happen in a frontend application using Stripe.js. For testing purposes, you can manually trigger the webhook or use Stripe CLI."
 					},
 					"response": []
 				},
@@ -434,7 +1163,7 @@
 								"checkout"
 							]
 						},
-						"description": "Checkout Premium subscription plan (paid tier).\n\n**Request:**\n- `plan`: \"premium\" (required)\n\n**Response (201):**\n- `subscription_id`: ID of the created subscription\n- `plan`: \"premium\"\n- `status`: \"pending\" (awaiting payment confirmation)\n- `client_secret`: Stripe PaymentIntent client secret for payment confirmation\n\n**Plan Details:**\n- Price: €10 (1000 cents)\n- Publishing Limit: Unlimited articles\n- Validity: 1 month from payment confirmation\n\n**Payment Flow:**\n1. API creates subscription in PENDING status\n2. API creates Stripe PaymentIntent and returns `client_secret`\n3. Frontend uses Stripe.js to confirm payment with test card:\n   - Card: `4242 4242 4242 4242`\n   - Expiry: Any future date (e.g., 12/34)\n   - CVC: Any 3 digits (e.g., 123)\n   - ZIP: Any 5 digits (e.g., 12345)\n4. Stripe webhook confirms payment and activates subscription (PENDING → ACTIVE)\n5. Subscription becomes valid for 1 month\n\n**Note:** In this collection, we're only testing the checkout endpoint. The payment confirmation would happen in a frontend application using Stripe.js. For testing purposes, you can manually trigger the webhook or use Stripe CLI."
+						"description": "Checkout Premium subscription plan (paid tier).\n\n**Request:**\n- `plan`: \"premium\" (required)\n\n**Response (201):**\n- `subscription_id`: ID of the created subscription\n- `plan`: \"premium\"\n- `status`: \"pending\" (awaiting payment confirmation)\n- `client_secret`: Stripe PaymentIntent client secret for payment confirmation\n\n**Plan Details:**\n- Price: \u20ac10 (1000 cents)\n- Publishing Limit: Unlimited articles\n- Validity: 1 month from payment confirmation\n\n**Payment Flow:**\n1. API creates subscription in PENDING status\n2. API creates Stripe PaymentIntent and returns `client_secret`\n3. Frontend uses Stripe.js to confirm payment with test card:\n   - Card: `4242 4242 4242 4242`\n   - Expiry: Any future date (e.g., 12/34)\n   - CVC: Any 3 digits (e.g., 123)\n   - ZIP: Any 5 digits (e.g., 12345)\n4. Stripe webhook confirms payment and activates subscription (PENDING \u2192 ACTIVE)\n5. Subscription becomes valid for 1 month\n\n**Note:** In this collection, we're only testing the checkout endpoint. The payment confirmation would happen in a frontend application using Stripe.js. For testing purposes, you can manually trigger the webhook or use Stripe CLI."
 					},
 					"response": []
 				},
@@ -486,7 +1215,7 @@
 					"response": []
 				}
 			],
-			"description": "Subscription management endpoints for plan checkout and status checking.\n\n**Flow:**\n1. **Checkout Basic/Medium/Premium** - Purchase or change subscription plan\n2. **Get Active Subscription** - View current subscription details\n\n**Subscription Plans:**\n- **Basic**: €0 (free), 2 articles/month, never expires\n- **Medium**: €2 (200 cents), 10 articles/month, valid for 1 month\n- **Premium**: €10 (1000 cents), unlimited articles, valid for 1 month\n\n**Payment Flow:**\n- **Basic plan**: Activates immediately (status: \"active\")\n- **Paid plans**: Creates PENDING subscription and returns `client_secret` for Stripe payment confirmation\n- **Webhook activation**: After successful payment, Stripe webhook activates the subscription (PENDING → ACTIVE)\n\n**Testing Paid Plans:**\nFor Medium and Premium plans, use Stripe test card:\n- Card: `4242 4242 4242 4242`\n- Expiry: Any future date (e.g., 12/34)\n- CVC: Any 3 digits (e.g., 123)\n- ZIP: Any 5 digits (e.g., 12345)\n\nNote: The actual payment confirmation happens in a frontend application using Stripe.js. This collection demonstrates the checkout API flow up to the point of receiving the `client_secret`."
+			"description": "Subscription management endpoints for plan checkout and status checking.\n\n**Flow:**\n1. **Checkout Basic/Medium/Premium** - Purchase or change subscription plan\n2. **Get Active Subscription** - View current subscription details\n\n**Subscription Plans:**\n- **Basic**: \u20ac0 (free), 2 articles/month, never expires\n- **Medium**: \u20ac2 (200 cents), 10 articles/month, valid for 1 month\n- **Premium**: \u20ac10 (1000 cents), unlimited articles, valid for 1 month\n\n**Payment Flow:**\n- **Basic plan**: Activates immediately (status: \"active\")\n- **Paid plans**: Creates PENDING subscription and returns `client_secret` for Stripe payment confirmation\n- **Webhook activation**: After successful payment, Stripe webhook activates the subscription (PENDING \u2192 ACTIVE)\n\n**Testing Paid Plans:**\nFor Medium and Premium plans, use Stripe test card:\n- Card: `4242 4242 4242 4242`\n- Expiry: Any future date (e.g., 12/34)\n- CVC: Any 3 digits (e.g., 123)\n- ZIP: Any 5 digits (e.g., 12345)\n\nNote: The actual payment confirmation happens in a frontend application using Stripe.js. This collection demonstrates the checkout API flow up to the point of receiving the `client_secret`."
 		},
 		{
 			"name": "Articles",
@@ -625,7 +1354,7 @@
 								"articles"
 							]
 						},
-						"description": "Create first published article (should succeed for Basic plan).\n\n**Authentication:** Required (Bearer token)\n\n**Expected Behavior:**\n- ✅ Should succeed (1 of 2 articles for Basic plan)\n- Returns 201 Created with article data\n- Article is immediately visible in public listings\n\n**Publishing Limit Check:**\n- Validated against current calendar month\n- Basic plan: 2 articles/month\n- This is the first published article\n\n**Important:**\n- Creating published articles checks the limit immediately\n- Draft articles do NOT count toward the limit\n- Editing already-published articles does NOT recheck the limit\n- Only draft→published transitions check the limit\n\n**Use Case:**\n- Demonstrate successful publishing within limit\n- First article of the month for author with Basic subscription"
+						"description": "Create first published article (should succeed for Basic plan).\n\n**Authentication:** Required (Bearer token)\n\n**Expected Behavior:**\n- \u2705 Should succeed (1 of 2 articles for Basic plan)\n- Returns 201 Created with article data\n- Article is immediately visible in public listings\n\n**Publishing Limit Check:**\n- Validated against current calendar month\n- Basic plan: 2 articles/month\n- This is the first published article\n\n**Important:**\n- Creating published articles checks the limit immediately\n- Draft articles do NOT count toward the limit\n- Editing already-published articles does NOT recheck the limit\n- Only draft\u2192published transitions check the limit\n\n**Use Case:**\n- Demonstrate successful publishing within limit\n- First article of the month for author with Basic subscription"
 					},
 					"response": []
 				},
@@ -694,7 +1423,7 @@
 								"articles"
 							]
 						},
-						"description": "Create second published article (should succeed for Basic plan).\n\n**Authentication:** Required (Bearer token)\n\n**Expected Behavior:**\n- ✅ Should succeed (2 of 2 articles for Basic plan)\n- Returns 201 Created with article data\n- Limit is now reached for the current month\n\n**Publishing Limit Check:**\n- Basic plan: 2 articles/month\n- This is the second (final) published article\n- Next published article will be rejected\n\n**Use Case:**\n- Demonstrate reaching the publishing limit\n- Last successful publication for Basic plan in current month"
+						"description": "Create second published article (should succeed for Basic plan).\n\n**Authentication:** Required (Bearer token)\n\n**Expected Behavior:**\n- \u2705 Should succeed (2 of 2 articles for Basic plan)\n- Returns 201 Created with article data\n- Limit is now reached for the current month\n\n**Publishing Limit Check:**\n- Basic plan: 2 articles/month\n- This is the second (final) published article\n- Next published article will be rejected\n\n**Use Case:**\n- Demonstrate reaching the publishing limit\n- Last successful publication for Basic plan in current month"
 					},
 					"response": []
 				},
@@ -723,7 +1452,7 @@
 									"    console.log('Current limit:', response.current_limit);",
 									"    console.log('Articles published:', response.articles_published_this_month);",
 									"    console.log('');",
-									"    console.log('✅ This error is EXPECTED and demonstrates the limit enforcement.');",
+									"    console.log('\u2705 This error is EXPECTED and demonstrates the limit enforcement.');",
 									"}"
 								],
 								"type": "text/javascript"
@@ -765,7 +1494,7 @@
 								"articles"
 							]
 						},
-						"description": "Attempt to create third published article (should fail for Basic plan).\n\n**Authentication:** Required (Bearer token)\n\n**Expected Behavior:**\n- ❌ Should FAIL with 403 Forbidden\n- Publishing limit exceeded for Basic plan\n\n**Error Response (403):**\n```json\n{\n    \"message\": \"You have exceeded your monthly publishing limit. Your current plan (basic) allows 2 articles per month. You have already published 2 articles this month. Please upgrade your subscription to publish more articles.\",\n    \"current_plan\": \"basic\",\n    \"current_limit\": 2,\n    \"articles_published_this_month\": 2\n}\n```\n\n**Publishing Limit Enforcement:**\n- Basic plan: 2 articles/month (limit reached)\n- Error message includes:\n  - Current plan name\n  - Monthly limit\n  - Number of articles already published this month\n  - Suggestion to upgrade\n\n**Solutions:**\n1. Wait until next calendar month (limits reset)\n2. Upgrade to Medium plan (10 articles/month)\n3. Upgrade to Premium plan (unlimited articles)\n4. Create as draft instead (unlimited drafts)\n\n**Use Case:**\n- Demonstrate publishing limit enforcement\n- Show clear error messaging to guide users\n- Validate subscription-based access control\n\n**Note:** This error is EXPECTED and demonstrates proper limit enforcement. Drafts are unlimited and can still be created."
+						"description": "Attempt to create third published article (should fail for Basic plan).\n\n**Authentication:** Required (Bearer token)\n\n**Expected Behavior:**\n- \u274c Should FAIL with 403 Forbidden\n- Publishing limit exceeded for Basic plan\n\n**Error Response (403):**\n```json\n{\n    \"message\": \"You have exceeded your monthly publishing limit. Your current plan (basic) allows 2 articles per month. You have already published 2 articles this month. Please upgrade your subscription to publish more articles.\",\n    \"current_plan\": \"basic\",\n    \"current_limit\": 2,\n    \"articles_published_this_month\": 2\n}\n```\n\n**Publishing Limit Enforcement:**\n- Basic plan: 2 articles/month (limit reached)\n- Error message includes:\n  - Current plan name\n  - Monthly limit\n  - Number of articles already published this month\n  - Suggestion to upgrade\n\n**Solutions:**\n1. Wait until next calendar month (limits reset)\n2. Upgrade to Medium plan (10 articles/month)\n3. Upgrade to Premium plan (unlimited articles)\n4. Create as draft instead (unlimited drafts)\n\n**Use Case:**\n- Demonstrate publishing limit enforcement\n- Show clear error messaging to guide users\n- Validate subscription-based access control\n\n**Note:** This error is EXPECTED and demonstrates proper limit enforcement. Drafts are unlimited and can still be created."
 					},
 					"response": []
 				},
@@ -805,7 +1534,7 @@
 								}
 							]
 						},
-						"description": "List all articles (public endpoint, no authentication required).\n\n**Authentication:** Not required (public endpoint)\n\n**Response (200):**\n- Returns array of articles with:\n  - `id`, `title`, `content`, `status`\n  - `is_boosted`: Boolean indicating boost status\n  - `author`: Author details (if included)\n  - `tags`: Associated tags (if included)\n  - Timestamps: `created_at`, `updated_at`, `published_at`\n\n**Query Parameters (Spatie Query Builder):**\n\n**Filters:**\n- `filter[status]=published|draft|archived` - Filter by article status\n- `filter[author_id]=1` - Filter by specific author\n- `filter[title]=Laravel` - Partial match on title\n- `filter[boosted]=true|false` - Filter by boost status\n\n**Sorts:**\n- `sort=title` - Sort by title ascending\n- `sort=-created_at` - Sort by creation date descending (default)\n- Default ordering: **Boosted → Premium → Medium → Basic → Date**\n- Boosted articles always appear first, regardless of author's plan\n- Then sorted by subscription plan tier (Premium > Medium > Basic)\n- Finally by creation date for articles in same tier\n\n**Includes:**\n- `include=author` - Eager load author relationship\n- `include=tags` - Eager load tags relationship\n- `include=author,tags` - Load multiple relationships\n\n**Article Ordering Examples:**\n1. Boosted article by Basic author - appears FIRST\n2. Regular article by Premium author - appears SECOND\n3. Regular article by Medium author - appears THIRD\n4. Regular article by Basic author - appears FOURTH\n\n**Use Cases:**\n- Public article listing page\n- Search and filter articles\n- Demonstrate plan-based ordering\n- Verify boosted articles appear first\n\n**Note:** This endpoint is public and does not require authentication. All published articles are visible to everyone."
+						"description": "List all articles (public endpoint, no authentication required).\n\n**Authentication:** Not required (public endpoint)\n\n**Response (200):**\n- Returns array of articles with:\n  - `id`, `title`, `content`, `status`\n  - `is_boosted`: Boolean indicating boost status\n  - `author`: Author details (if included)\n  - `tags`: Associated tags (if included)\n  - Timestamps: `created_at`, `updated_at`, `published_at`\n\n**Query Parameters (Spatie Query Builder):**\n\n**Filters:**\n- `filter[status]=published|draft|archived` - Filter by article status\n- `filter[author_id]=1` - Filter by specific author\n- `filter[title]=Laravel` - Partial match on title\n- `filter[boosted]=true|false` - Filter by boost status\n\n**Sorts:**\n- `sort=title` - Sort by title ascending\n- `sort=-created_at` - Sort by creation date descending (default)\n- Default ordering: **Boosted \u2192 Premium \u2192 Medium \u2192 Basic \u2192 Date**\n- Boosted articles always appear first, regardless of author's plan\n- Then sorted by subscription plan tier (Premium > Medium > Basic)\n- Finally by creation date for articles in same tier\n\n**Includes:**\n- `include=author` - Eager load author relationship\n- `include=tags` - Eager load tags relationship\n- `include=author,tags` - Load multiple relationships\n\n**Article Ordering Examples:**\n1. Boosted article by Basic author - appears FIRST\n2. Regular article by Premium author - appears SECOND\n3. Regular article by Medium author - appears THIRD\n4. Regular article by Basic author - appears FOURTH\n\n**Use Cases:**\n- Public article listing page\n- Search and filter articles\n- Demonstrate plan-based ordering\n- Verify boosted articles appear first\n\n**Note:** This endpoint is public and does not require authentication. All published articles are visible to everyone."
 					},
 					"response": []
 				},
@@ -906,7 +1635,7 @@
 								"{{article_id}}"
 							]
 						},
-						"description": "Update an existing article (author only).\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Only the article's author can update it\n\n**Request:**\n- `title`: Updated title (optional, min: 10, max: 255)\n- `content`: Updated content (optional, min: 200)\n- `status`: Updated status (optional: \"draft\"|\"published\"|\"archived\")\n- `tag_ids`: Updated tag associations (optional)\n- All fields are optional - only send fields you want to update\n\n**Response (204):**\n- No Content - Update successful\n- To view updated article, use \"Get Single Article\" request\n\n**Response (403):**\n- Forbidden - User is not the article author\n\n**Response (404):**\n- Article not found\n\n**Publishing Limit Behavior:**\n- ✅ Editing already-published articles does NOT recheck limit\n- ✅ Changing draft→published status DOES check limit\n- ✅ Changing published→draft status does NOT check limit\n\n**Use Cases:**\n- Fix typos or update content\n- Change article status (draft/published/archived)\n- Update tag associations\n- Publish a draft (subject to limit check)\n\n**Note:** Returns 204 No Content on success. Use GET request to view updated data."
+						"description": "Update an existing article (author only).\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Only the article's author can update it\n\n**Request:**\n- `title`: Updated title (optional, min: 10, max: 255)\n- `content`: Updated content (optional, min: 200)\n- `status`: Updated status (optional: \"draft\"|\"published\"|\"archived\")\n- `tag_ids`: Updated tag associations (optional)\n- All fields are optional - only send fields you want to update\n\n**Response (204):**\n- No Content - Update successful\n- To view updated article, use \"Get Single Article\" request\n\n**Response (403):**\n- Forbidden - User is not the article author\n\n**Response (404):**\n- Article not found\n\n**Publishing Limit Behavior:**\n- \u2705 Editing already-published articles does NOT recheck limit\n- \u2705 Changing draft\u2192published status DOES check limit\n- \u2705 Changing published\u2192draft status does NOT check limit\n\n**Use Cases:**\n- Fix typos or update content\n- Change article status (draft/published/archived)\n- Update tag associations\n- Publish a draft (subject to limit check)\n\n**Note:** Returns 204 No Content on success. Use GET request to view updated data."
 					},
 					"response": []
 				},
@@ -973,7 +1702,347 @@
 					"response": []
 				}
 			],
-			"description": "Article management endpoints for CRUD operations and public listing.\n\n**Flow:**\n1. **Create Draft** - Create article without affecting publishing limit (unlimited drafts)\n2. **Create Published (First)** - Create first published article (1/2 for Basic plan)\n3. **Create Published (Second)** - Create second published article (2/2 for Basic plan - limit reached)\n4. **Create Published (Limit Exceeded)** - Attempt to exceed limit (returns 403 error)\n5. **List Articles** - View all published articles with plan-based ordering\n6. **Get Single Article** - Retrieve specific article details\n7. **Update Article** - Modify article content or status (author only)\n8. **Delete Article** - Remove article permanently (author only)\n\n**Publishing Limits:**\n- **Basic**: 2 articles/month\n- **Medium**: 10 articles/month\n- **Premium**: Unlimited\n\n**Limit Enforcement Rules:**\n- ✅ Creating published articles checks limit\n- ✅ Publishing a draft (draft→published) checks limit\n- ✅ Editing already-published articles does NOT recheck limit\n- ✅ Draft articles are unlimited (do not count toward limit)\n- ✅ Limits are per calendar month (reset on 1st of each month)\n\n**Article Ordering in Listings:**\nDefault ordering prioritizes boosted articles and subscription tiers:\n1. **Boosted articles** - Always appear first (regardless of author's plan)\n2. **Premium author articles** - Second priority\n3. **Medium author articles** - Third priority\n4. **Basic author articles** - Fourth priority\n5. **Creation date** - Within each tier, sorted by date\n\n**Authorization:**\n- **Public endpoints**: List Articles, Get Single Article (no auth required)\n- **Protected endpoints**: Create, Update, Delete (requires auth)\n- **Author-only**: Only article owner can update or delete\n\n**Update/Delete Response:**\nBoth update and delete operations return `204 No Content` on success. To view updated data, make a separate GET request."
+			"description": "Article management endpoints for CRUD operations and public listing.\n\n**Flow:**\n1. **Create Draft** - Create article without affecting publishing limit (unlimited drafts)\n2. **Create Published (First)** - Create first published article (1/2 for Basic plan)\n3. **Create Published (Second)** - Create second published article (2/2 for Basic plan - limit reached)\n4. **Create Published (Limit Exceeded)** - Attempt to exceed limit (returns 403 error)\n5. **List Articles** - View all published articles with plan-based ordering\n6. **Get Single Article** - Retrieve specific article details\n7. **Update Article** - Modify article content or status (author only)\n8. **Delete Article** - Remove article permanently (author only)\n\n**Publishing Limits:**\n- **Basic**: 2 articles/month\n- **Medium**: 10 articles/month\n- **Premium**: Unlimited\n\n**Limit Enforcement Rules:**\n- \u2705 Creating published articles checks limit\n- \u2705 Publishing a draft (draft\u2192published) checks limit\n- \u2705 Editing already-published articles does NOT recheck limit\n- \u2705 Draft articles are unlimited (do not count toward limit)\n- \u2705 Limits are per calendar month (reset on 1st of each month)\n\n**Article Ordering in Listings:**\nDefault ordering prioritizes boosted articles and subscription tiers:\n1. **Boosted articles** - Always appear first (regardless of author's plan)\n2. **Premium author articles** - Second priority\n3. **Medium author articles** - Third priority\n4. **Basic author articles** - Fourth priority\n5. **Creation date** - Within each tier, sorted by date\n\n**Authorization:**\n- **Public endpoints**: List Articles, Get Single Article (no auth required)\n- **Protected endpoints**: Create, Update, Delete (requires auth)\n- **Author-only**: Only article owner can update or delete\n\n**Update/Delete Response:**\nBoth update and delete operations return `204 No Content` on success. To view updated data, make a separate GET request."
+		},
+		{
+			"name": "Tags",
+			"item": [
+				{
+					"name": "Create Tag 1",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('tag_id_1', response.data.id);",
+									"    console.log('Tag created with ID:', response.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Laravel\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/tags",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"tags"
+							]
+						},
+						"description": "Create a new tag.\n\n**Authentication:** Required\n\n**Request:**\n- `name`: Tag name (required, min: 2, max: 50)\n\n**Response (201):**\n- Returns tag object with ID, name, timestamps\n- Auto-captured to `tag_id_1` variable\n\n**Use Case:**\n- Create tags to categorize articles\n- Tags can be associated with articles via `tag_ids` array\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Tag 2",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('tag_id_2', response.data.id);",
+									"    console.log('Tag created with ID:', response.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"PHP\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/tags",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"tags"
+							]
+						},
+						"description": "Create second tag for article categorization."
+					},
+					"response": []
+				},
+				{
+					"name": "List Tags",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/tags?sort=-created_at",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"tags"
+							],
+							"query": [
+								{
+									"key": "sort",
+									"value": "-created_at",
+									"description": "Sort by creation date descending"
+								}
+							]
+						},
+						"description": "List all tags (public endpoint).\n\n**Authentication:** Not required\n\n**Query Parameters:**\n- `filter[name]=Laravel`: Partial match on name\n- `sort=name`: Sort by name ascending\n- `sort=-created_at`: Sort by creation date descending (default)\n\n**Response:**\nReturns array of tag objects with ID, name, timestamps.\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Single Tag",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/tags/{{tag_id_1}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"tags",
+								"{{tag_id_1}}"
+							]
+						},
+						"description": "Retrieve single tag by ID (public endpoint)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Tag",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 204) {",
+									"    console.log('Tag updated successfully');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Laravel Framework\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/tags/{{tag_id_1}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"tags",
+								"{{tag_id_1}}"
+							]
+						},
+						"description": "Update tag name (only if unused).\n\n**Authentication:** Required\n\n**Authorization:** Tags can only be updated if NOT associated with any articles\n\n**Request:**\n- `name`: New tag name (required, min: 2, max: 50)\n\n**Response (204):** No Content - Update successful\n**Response (403):** Forbidden - Tag is in use by articles\n\n**Policy:**\nPrevents updating tags that are already associated with articles to maintain content integrity.\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Tag",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 204) {",
+									"    console.log('Tag deleted successfully');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/tags/{{tag_id_2}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"tags",
+								"{{tag_id_2}}"
+							]
+						},
+						"description": "Delete tag (only if unused).\n\n**Authentication:** Required\n\n**Authorization:** Tags can only be deleted if NOT associated with any articles\n\n**Response (204):** No Content - Deletion successful\n**Response (403):** Forbidden - Tag is in use by articles\n**Response (404):** Tag not found\n\n**Policy:**\nPrevents deleting tags that are associated with articles to maintain referential integrity.\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Article with Tags",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    console.log('Article with tags created with ID:', response.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Laravel and PHP: A Perfect Match for Modern Web Development\",\n    \"content\": \"Laravel leverages the best features of PHP to create a developer-friendly framework that powers millions of websites. In this article, we explore how Laravel's elegant syntax combines with PHP's performance and versatility to deliver exceptional web applications. Learn why this combination remains the top choice for developers worldwide.\",\n    \"status\": \"published\",\n    \"tag_ids\": [{{tag_id_1}}]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/articles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles"
+							]
+						},
+						"description": "Create article with tag associations.\n\n**Tag Association:**\n- `tag_ids`: Array of tag IDs to associate\n- Tags must exist before association\n- Articles can have multiple tags\n- Tags are eager-loaded with `include=tags` query parameter\n\n**Example:**\n```json\n{\n    \"tag_ids\": [1, 2]  // Associate with Laravel and PHP tags\n}\n```\n\n**Verification:**\nUse `GET /articles/{id}?include=tags` to see associated tags in response.\n"
+					},
+					"response": []
+				}
+			],
+			"description": "Tag management endpoints for article categorization.\n\n**Purpose:**\nTags allow content organization and filtering. Articles can be associated with multiple tags for categorization.\n\n**CRUD Operations:**\n1. **Create**: Add new tags (authenticated)\n2. **List**: View all tags (public)\n3. **Get**: Retrieve single tag (public)\n4. **Update**: Modify unused tags only (authenticated, protected)\n5. **Delete**: Remove unused tags only (authenticated, protected)\n\n**Tag Protection Policy:**\nTags associated with articles CANNOT be updated or deleted. This maintains content integrity and prevents breaking article associations.\n\n**Tag Usage:**\n- Create tags first\n- Associate with articles via `tag_ids` array in article creation/update\n- Filter articles by tags in listing endpoints\n- Eager load tags with `include=tags` query parameter\n\n**Workflow:**\n1. Create tags (Laravel, PHP, Framework, etc.)\n2. Create articles and associate with tags\n3. List articles filtered by specific tags\n4. Tags become protected once in use\n\n**Variables:**\n- `tag_id_1`: First tag ID (e.g., \"Laravel\")\n- `tag_id_2`: Second tag ID (e.g., \"PHP\")\n"
 		},
 		{
 			"name": "Boost",
@@ -1052,7 +2121,7 @@
 								"boost"
 							]
 						},
-						"description": "Boost an article to appear at top of listings.\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Only the article's author can boost it\n\n**Request:**\n- No payload required\n- Uses `{{article_id}}` from previous article creation\n\n**Response (200):**\n- `client_secret`: Stripe PaymentIntent client secret for payment confirmation\n- Article will be boosted after payment succeeds\n\n**Response (409 Conflict):**\n- Article is already boosted\n- `message`: \"This article is already boosted.\"\n- Each article can only be boosted once\n\n**Response (403):**\n- Forbidden - User is not the article author\n\n**Response (404):**\n- Article not found\n\n**Boost Pricing:**\n- Default: €1 (100 cents)\n- Configurable via `STRIPE_BOOST_PRICE` environment variable\n\n**Payment Flow:**\n1. API creates Stripe PaymentIntent and returns `client_secret`\n2. Frontend uses Stripe.js to confirm payment with test card:\n   - Card: `4242 4242 4242 4242`\n   - Expiry: Any future date (e.g., 12/34)\n   - CVC: Any 3 digits (e.g., 123)\n   - ZIP: Any 5 digits (e.g., 12345)\n3. Stripe webhook confirms payment and marks article as boosted\n4. Article's `boosted_at` timestamp is set\n\n**Boost Behavior:**\n- **Priority Positioning**: Boosted articles ALWAYS appear first in listings\n- **Plan Override**: Boost supersedes subscription plan ordering\n  - Even Basic plan authors can have top-positioned articles via boost\n- **Permanent**: Boost does not expire (one-time payment)\n- **One per article**: Each article can only be boosted once\n\n**Listing Order After Boost:**\n1. ⭐ **Boosted articles** (any plan) - TOP priority\n2. Premium author articles (not boosted)\n3. Medium author articles (not boosted)\n4. Basic author articles (not boosted)\n\n**Use Cases:**\n- Promote important articles\n- Increase article visibility\n- Appear above higher-tier subscription articles\n- Marketing campaigns or featured content\n\n**Note:** In this collection, we're demonstrating the boost endpoint. The payment confirmation would happen in a frontend application using Stripe.js. For testing, you can manually trigger the webhook or use Stripe CLI to simulate successful payment."
+						"description": "Boost an article to appear at top of listings.\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Only the article's author can boost it\n\n**Request:**\n- No payload required\n- Uses `{{article_id}}` from previous article creation\n\n**Response (200):**\n- `client_secret`: Stripe PaymentIntent client secret for payment confirmation\n- Article will be boosted after payment succeeds\n\n**Response (409 Conflict):**\n- Article is already boosted\n- `message`: \"This article is already boosted.\"\n- Each article can only be boosted once\n\n**Response (403):**\n- Forbidden - User is not the article author\n\n**Response (404):**\n- Article not found\n\n**Boost Pricing:**\n- Default: \u20ac1 (100 cents)\n- Configurable via `STRIPE_BOOST_PRICE` environment variable\n\n**Payment Flow:**\n1. API creates Stripe PaymentIntent and returns `client_secret`\n2. Frontend uses Stripe.js to confirm payment with test card:\n   - Card: `4242 4242 4242 4242`\n   - Expiry: Any future date (e.g., 12/34)\n   - CVC: Any 3 digits (e.g., 123)\n   - ZIP: Any 5 digits (e.g., 12345)\n3. Stripe webhook confirms payment and marks article as boosted\n4. Article's `boosted_at` timestamp is set\n\n**Boost Behavior:**\n- **Priority Positioning**: Boosted articles ALWAYS appear first in listings\n- **Plan Override**: Boost supersedes subscription plan ordering\n  - Even Basic plan authors can have top-positioned articles via boost\n- **Permanent**: Boost does not expire (one-time payment)\n- **One per article**: Each article can only be boosted once\n\n**Listing Order After Boost:**\n1. \u2b50 **Boosted articles** (any plan) - TOP priority\n2. Premium author articles (not boosted)\n3. Medium author articles (not boosted)\n4. Basic author articles (not boosted)\n\n**Use Cases:**\n- Promote important articles\n- Increase article visibility\n- Appear above higher-tier subscription articles\n- Marketing campaigns or featured content\n\n**Note:** In this collection, we're demonstrating the boost endpoint. The payment confirmation would happen in a frontend application using Stripe.js. For testing, you can manually trigger the webhook or use Stripe CLI to simulate successful payment."
 					},
 					"response": []
 				},
@@ -1087,12 +2156,130 @@
 								}
 							]
 						},
-						"description": "Verify boosted article positioning in listings.\n\n**Authentication:** Not required (public endpoint)\n\n**Purpose:**\nThis is the same endpoint as \"List Articles (Public)\" but with focus on verifying boost behavior. After boosting an article, this request demonstrates that boosted articles appear at the top of listings regardless of author subscription plan.\n\n**Expected Article Order:**\n1. ⭐ **Boosted articles** (`is_boosted: true`) - Appear FIRST\n   - Even if author has Basic subscription\n   - Multiple boosted articles sorted by date\n2. **Premium author articles** (not boosted) - Second priority\n3. **Medium author articles** (not boosted) - Third priority  \n4. **Basic author articles** (not boosted) - Fourth priority\n5. Within each tier, sorted by creation date (newest first)\n\n**Response Fields to Check:**\n- `is_boosted`: Boolean indicating boost status\n- `author.subscription.plan`: Author's subscription plan (if included)\n- `created_at`: Article creation timestamp\n\n**Verification Steps:**\n1. Boost an article using \"Boost Article\" request\n2. Confirm payment via Stripe (or simulate webhook in testing)\n3. Run this request\n4. Verify boosted article appears at top, even if author has Basic plan\n5. Verify non-boosted Premium articles appear after boosted Basic articles\n\n**Example Scenario:**\n- **Article A**: Basic plan author, boosted → Position 1 (TOP)\n- **Article B**: Premium plan author, not boosted → Position 2\n- **Article C**: Medium plan author, not boosted → Position 3\n- **Article D**: Basic plan author, not boosted → Position 4\n\n**Boost Supersedes Plan:**\nThe key insight is that boost payment allows ANY author (regardless of subscription tier) to achieve top positioning. This creates a fair monetization model where visibility isn't permanently tied to monthly subscription cost.\n\n**Use Cases:**\n- Verify boost functionality works\n- Demonstrate plan-independent promotion\n- Test article sorting algorithm\n- Validate boosted articles are prioritized correctly\n\n**Note:** This endpoint is identical to \"List Articles (Public)\" but focuses on boost verification. Use query parameters to filter and sort as needed."
+						"description": "Verify boosted article positioning in listings.\n\n**Authentication:** Not required (public endpoint)\n\n**Purpose:**\nThis is the same endpoint as \"List Articles (Public)\" but with focus on verifying boost behavior. After boosting an article, this request demonstrates that boosted articles appear at the top of listings regardless of author subscription plan.\n\n**Expected Article Order:**\n1. \u2b50 **Boosted articles** (`is_boosted: true`) - Appear FIRST\n   - Even if author has Basic subscription\n   - Multiple boosted articles sorted by date\n2. **Premium author articles** (not boosted) - Second priority\n3. **Medium author articles** (not boosted) - Third priority  \n4. **Basic author articles** (not boosted) - Fourth priority\n5. Within each tier, sorted by creation date (newest first)\n\n**Response Fields to Check:**\n- `is_boosted`: Boolean indicating boost status\n- `author.subscription.plan`: Author's subscription plan (if included)\n- `created_at`: Article creation timestamp\n\n**Verification Steps:**\n1. Boost an article using \"Boost Article\" request\n2. Confirm payment via Stripe (or simulate webhook in testing)\n3. Run this request\n4. Verify boosted article appears at top, even if author has Basic plan\n5. Verify non-boosted Premium articles appear after boosted Basic articles\n\n**Example Scenario:**\n- **Article A**: Basic plan author, boosted \u2192 Position 1 (TOP)\n- **Article B**: Premium plan author, not boosted \u2192 Position 2\n- **Article C**: Medium plan author, not boosted \u2192 Position 3\n- **Article D**: Basic plan author, not boosted \u2192 Position 4\n\n**Boost Supersedes Plan:**\nThe key insight is that boost payment allows ANY author (regardless of subscription tier) to achieve top positioning. This creates a fair monetization model where visibility isn't permanently tied to monthly subscription cost.\n\n**Use Cases:**\n- Verify boost functionality works\n- Demonstrate plan-independent promotion\n- Test article sorting algorithm\n- Validate boosted articles are prioritized correctly\n\n**Note:** This endpoint is identical to \"List Articles (Public)\" but focuses on boost verification. Use query parameters to filter and sort as needed."
 					},
 					"response": []
 				}
 			],
-			"description": "Article boost endpoints for priority promotion via payment.\n\n**Overview:**\nThe boost feature allows authors to promote their articles to the top of public listings through a one-time payment, regardless of their subscription plan. This provides an additional monetization avenue and ensures fair visibility opportunities for all authors.\n\n**Flow:**\n1. **Boost Article** - Initiate boost payment for an article\n2. **List Articles (Verify Boost Order)** - Confirm boosted article appears at top\n\n**Boost Mechanics:**\n\n**Pricing:**\n- Default: €1 (100 cents)\n- Configurable via `STRIPE_BOOST_PRICE` environment variable\n- One-time payment (not recurring)\n\n**Payment Flow:**\n1. Author requests boost via `POST /articles/{id}/boost`\n2. API creates Stripe PaymentIntent and returns `client_secret`\n3. Frontend confirms payment using Stripe.js with test card\n4. Stripe webhook processes `payment_intent.succeeded` event\n5. Article's `boosted_at` timestamp is set (marks as boosted)\n6. Article immediately appears at top of listings\n\n**Boost Behavior:**\n- **Permanent**: One-time payment, boost never expires\n- **Unique**: Each article can only be boosted once (409 error if already boosted)\n- **Priority Positioning**: Boosted articles ALWAYS appear first in listings\n- **Plan-Independent**: Works for all subscription tiers (Basic, Medium, Premium)\n\n**Article Ordering After Boost:**\n1. ⭐ **Boosted articles** (any plan) - TOP position\n   - Multiple boosted articles sorted by date\n2. **Premium plan articles** (not boosted)\n3. **Medium plan articles** (not boosted)\n4. **Basic plan articles** (not boosted)\n5. Within each tier, sorted by creation date\n\n**Key Insights:**\n- Boost allows Basic plan authors to achieve top visibility\n- Provides alternative monetization beyond subscriptions\n- Creates equitable promotion opportunity for all authors\n- Demonstrates multi-tier prioritization (boost > plan > date)\n\n**Testing with Stripe:**\nUse test card for boost payments:\n- Card: `4242 4242 4242 4242`\n- Expiry: Any future date (e.g., 12/34)\n- CVC: Any 3 digits (e.g., 123)\n- ZIP: Any 5 digits (e.g., 12345)\n\n**Authorization:**\n- Only article author can boost their own articles\n- Requires authentication (Bearer token)\n\n**Error Handling:**\n- **409 Conflict**: Article is already boosted (cannot boost twice)\n- **403 Forbidden**: User is not the article author\n- **404 Not Found**: Article does not exist\n\n**Use Cases:**\n- Promote important or time-sensitive articles\n- Increase article visibility for marketing campaigns\n- Feature specific content regardless of subscription tier\n- Level the playing field for Basic plan authors\n\n**Note:** In production, the frontend would use Stripe.js to confirm the payment. This collection demonstrates the API flow up to receiving the `client_secret`. For local testing, use Stripe CLI to forward webhooks."
+			"description": "Article boost endpoints for priority promotion via payment.\n\n**Overview:**\nThe boost feature allows authors to promote their articles to the top of public listings through a one-time payment, regardless of their subscription plan. This provides an additional monetization avenue and ensures fair visibility opportunities for all authors.\n\n**Flow:**\n1. **Boost Article** - Initiate boost payment for an article\n2. **List Articles (Verify Boost Order)** - Confirm boosted article appears at top\n\n**Boost Mechanics:**\n\n**Pricing:**\n- Default: \u20ac1 (100 cents)\n- Configurable via `STRIPE_BOOST_PRICE` environment variable\n- One-time payment (not recurring)\n\n**Payment Flow:**\n1. Author requests boost via `POST /articles/{id}/boost`\n2. API creates Stripe PaymentIntent and returns `client_secret`\n3. Frontend confirms payment using Stripe.js with test card\n4. Stripe webhook processes `payment_intent.succeeded` event\n5. Article's `boosted_at` timestamp is set (marks as boosted)\n6. Article immediately appears at top of listings\n\n**Boost Behavior:**\n- **Permanent**: One-time payment, boost never expires\n- **Unique**: Each article can only be boosted once (409 error if already boosted)\n- **Priority Positioning**: Boosted articles ALWAYS appear first in listings\n- **Plan-Independent**: Works for all subscription tiers (Basic, Medium, Premium)\n\n**Article Ordering After Boost:**\n1. \u2b50 **Boosted articles** (any plan) - TOP position\n   - Multiple boosted articles sorted by date\n2. **Premium plan articles** (not boosted)\n3. **Medium plan articles** (not boosted)\n4. **Basic plan articles** (not boosted)\n5. Within each tier, sorted by creation date\n\n**Key Insights:**\n- Boost allows Basic plan authors to achieve top visibility\n- Provides alternative monetization beyond subscriptions\n- Creates equitable promotion opportunity for all authors\n- Demonstrates multi-tier prioritization (boost > plan > date)\n\n**Testing with Stripe:**\nUse test card for boost payments:\n- Card: `4242 4242 4242 4242`\n- Expiry: Any future date (e.g., 12/34)\n- CVC: Any 3 digits (e.g., 123)\n- ZIP: Any 5 digits (e.g., 12345)\n\n**Authorization:**\n- Only article author can boost their own articles\n- Requires authentication (Bearer token)\n\n**Error Handling:**\n- **409 Conflict**: Article is already boosted (cannot boost twice)\n- **403 Forbidden**: User is not the article author\n- **404 Not Found**: Article does not exist\n\n**Use Cases:**\n- Promote important or time-sensitive articles\n- Increase article visibility for marketing campaigns\n- Feature specific content regardless of subscription tier\n- Level the playing field for Basic plan authors\n\n**Note:** In production, the frontend would use Stripe.js to confirm the payment. This collection demonstrates the API flow up to receiving the `client_secret`. For local testing, use Stripe CLI to forward webhooks."
+		},
+		{
+			"name": "Workarounds",
+			"item": [
+				{
+					"name": "Simulate Webhook - Activate Subscription",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Stripe-Signature",
+								"value": "simulated_signature_for_testing"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": \"evt_test_webhook\",\n    \"object\": \"event\",\n    \"type\": \"payment_intent.succeeded\",\n    \"data\": {\n        \"object\": {\n            \"id\": \"pi_test_123456789\",\n            \"object\": \"payment_intent\",\n            \"amount\": 200,\n            \"currency\": \"eur\",\n            \"metadata\": {\n                \"author_id\": \"{{author_id}}\",\n                \"plan\": \"medium\"\n            },\n            \"status\": \"succeeded\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/webhooks/stripe",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"webhooks",
+								"stripe"
+							]
+						},
+						"description": "Manually trigger subscription activation webhook.\n\n**WARNING**: This bypasses Stripe signature verification and should ONLY be used for testing purposes.\n\n**Usage:**\n1. Complete \"Checkout Medium Plan\" or \"Checkout Premium Plan\" request\n2. Copy the `subscription_id` from response\n3. Update `author_id` in webhook payload to match your author\n4. Update `plan` to match (\"medium\" or \"premium\")\n5. Execute this request\n6. Subscription status changes: PENDING \u2192 ACTIVE\n\n**Real Flow vs. Workaround:**\n- Real: Stripe \u2192 Webhook \u2192 API validates signature \u2192 Activates subscription\n- Workaround: Postman \u2192 Webhook \u2192 API (signature validation may fail) \u2192 Manual activation\n\n**If Signature Validation Fails:**\nTemporarily disable webhook signature verification in StripeWebhookController for testing, OR use Stripe CLI method instead.\n\n**Payload Structure:**\n- `type`: \"payment_intent.succeeded\"\n- `metadata.author_id`: Author ID from registration\n- `metadata.plan`: \"basic\" | \"medium\" | \"premium\"\n- `amount`: 200 (\u20ac2) for medium, 1000 (\u20ac10) for premium\n\n**Verification:**\nAfter execution, run \"Get Active Subscription\" to verify status is \"active\".\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Simulate Webhook - Activate Boost",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Stripe-Signature",
+								"value": "simulated_signature_for_testing"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": \"evt_test_webhook_boost\",\n    \"object\": \"event\",\n    \"type\": \"payment_intent.succeeded\",\n    \"data\": {\n        \"object\": {\n            \"id\": \"pi_test_boost_123\",\n            \"object\": \"payment_intent\",\n            \"amount\": 100,\n            \"currency\": \"eur\",\n            \"metadata\": {\n                \"article_id\": \"{{article_id}}\",\n                \"type\": \"boost\"\n            },\n            \"status\": \"succeeded\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/webhooks/stripe",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"webhooks",
+								"stripe"
+							]
+						},
+						"description": "Manually trigger article boost activation webhook.\n\n**WARNING**: This bypasses Stripe signature verification and should ONLY be used for testing purposes.\n\n**Usage:**\n1. Complete \"Boost Article\" request\n2. Copy the `article_id` from response\n3. Update `article_id` in webhook payload\n4. Execute this request\n5. Article's `boosted_at` timestamp is set\n6. Article appears at top of listings\n\n**Payload Structure:**\n- `type`: \"payment_intent.succeeded\"\n- `metadata.article_id`: Article ID to boost\n- `metadata.type`: \"boost\" (distinguishes from subscription payments)\n- `amount`: 100 (\u20ac1) - default boost price\n\n**Verification:**\nAfter execution, run \"List Articles (Verify Boost Order)\" to confirm boosted article appears first.\n\n**Boost Behavior:**\n- Boosted articles ALWAYS appear at top of listings\n- Supersedes subscription tier ordering\n- Permanent (no expiration)\n- One-time payment per article\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Direct DB - Activate Subscription (SQL)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/../../about",
+							"host": [
+								"{{base_url}}"
+							]
+						},
+						"description": "Direct database update to activate subscription (bypass Stripe entirely).\n\n**NOTE**: Postman cannot execute SQL directly. This is a reference for manual database updates.\n\n**SQL Command:**\n```sql\n-- Activate specific subscription by ID\nUPDATE subscriptions\nSET\n    status = 'active',\n    valid_from = NOW(),\n    valid_to = DATE_ADD(NOW(), INTERVAL 1 MONTH)\nWHERE id = {subscription_id} AND author_id = {author_id};\n\n-- Example for subscription_id = 1\nUPDATE subscriptions\nSET\n    status = 'active',\n    valid_from = NOW(),\n    valid_to = DATE_ADD(NOW(), INTERVAL 1 MONTH)\nWHERE id = 1;\n```\n\n**Execute Via:**\n1. **MySQL CLI**:\n   ```bash\n   mysql -u root -p laravel_blog < update.sql\n   ```\n\n2. **Laravel Tinker**:\n   ```bash\n   php artisan tinker\n   >>> $sub = App\\Models\\Subscription::find(1);\n   >>> $sub->status = 'active';\n   >>> $sub->valid_from = now();\n   >>> $sub->valid_to = now()->addMonth();\n   >>> $sub->save();\n   ```\n\n3. **Database GUI**: TablePlus, phpMyAdmin, etc.\n\n**When to Use:**\n- Quick testing without Stripe setup\n- Bypass webhook simulation\n- Batch activation of multiple subscriptions\n- Local development without internet connection\n\n**Warning**: This skips payment processing entirely. Only for testing!\n"
+					},
+					"response": []
+				},
+				{
+					"name": "Direct DB - Boost Article (SQL)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/../../about",
+							"host": [
+								"{{base_url}}"
+							]
+						},
+						"description": "Direct database update to boost article (bypass Stripe entirely).\n\n**NOTE**: Postman cannot execute SQL directly. This is a reference for manual database updates.\n\n**SQL Command:**\n```sql\n-- Boost specific article by ID\nUPDATE articles\nSET boosted_at = NOW()\nWHERE id = {article_id};\n\n-- Example for article_id = 1\nUPDATE articles\nSET boosted_at = NOW()\nWHERE id = 1;\n\n-- Verify boost\nSELECT id, title, boosted_at, author_id\nFROM articles\nWHERE boosted_at IS NOT NULL\nORDER BY boosted_at DESC;\n```\n\n**Execute Via:**\n1. **Laravel Tinker**:\n   ```bash\n   php artisan tinker\n   >>> $article = App\\Models\\Article::find(1);\n   >>> $article->boosted_at = now();\n   >>> $article->save();\n   ```\n\n2. **MySQL CLI**:\n   ```bash\n   mysql -u root -p laravel_blog -e \"UPDATE articles SET boosted_at = NOW() WHERE id = 1;\"\n   ```\n\n3. **Database GUI**: TablePlus, phpMyAdmin, etc.\n\n**Verification:**\nAfter update, run \"List Articles (Verify Boost Order)\" to confirm boosted article appears first in results.\n\n**When to Use:**\n- Quick testing without Stripe setup\n- Bypass webhook simulation\n- Demonstrate boost ordering without payment\n- Local development testing\n\n**Warning**: This skips payment processing entirely. Only for testing!\n"
+					},
+					"response": []
+				}
+			],
+			"description": "Manual workarounds for testing paid features without full Stripe integration.\n\nThese requests help you test subscription activation and article boost functionality when:\n- Stripe CLI is not available\n- You want to avoid webhook complexity\n- Quick testing without payment confirmation\n- Local development without internet access\n\n**Methods Available:**\n\n1. **Webhook Simulation**: POST requests that manually trigger webhook endpoint\n   - Pros: Exercises actual webhook code path\n   - Cons: May fail signature verification (can be disabled for testing)\n\n2. **Direct Database Updates**: SQL commands to modify data directly\n   - Pros: Bypasses all Stripe integration completely\n   - Cons: Skips business logic, only for testing\n\n**Production Note:**\nThese workarounds should NEVER be used in production. They bypass:\n- Payment processing\n- Stripe signature verification\n- Transaction recording\n- Financial audit trail\n\n**Recommended Approach:**\nFor comprehensive testing, use Stripe CLI with webhook forwarding (see collection description).\n"
 		}
 	],
 	"variable": [
@@ -1128,6 +2315,76 @@
 		},
 		{
 			"key": "boost_client_secret",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "author_id_1",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "author_id_2",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "author_id_3",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "auth_token_1",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "auth_token_2",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "auth_token_3",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "article_id_1",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "article_id_2",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "article_id_3",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "subscription_id_1",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "subscription_id_2",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "subscription_id_3",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "tag_id_1",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "tag_id_2",
 			"value": "",
 			"type": "string"
 		}
