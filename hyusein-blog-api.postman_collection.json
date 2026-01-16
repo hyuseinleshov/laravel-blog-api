@@ -974,6 +974,125 @@
 				}
 			],
 			"description": "Article management endpoints for CRUD operations and public listing.\n\n**Flow:**\n1. **Create Draft** - Create article without affecting publishing limit (unlimited drafts)\n2. **Create Published (First)** - Create first published article (1/2 for Basic plan)\n3. **Create Published (Second)** - Create second published article (2/2 for Basic plan - limit reached)\n4. **Create Published (Limit Exceeded)** - Attempt to exceed limit (returns 403 error)\n5. **List Articles** - View all published articles with plan-based ordering\n6. **Get Single Article** - Retrieve specific article details\n7. **Update Article** - Modify article content or status (author only)\n8. **Delete Article** - Remove article permanently (author only)\n\n**Publishing Limits:**\n- **Basic**: 2 articles/month\n- **Medium**: 10 articles/month\n- **Premium**: Unlimited\n\n**Limit Enforcement Rules:**\n- ✅ Creating published articles checks limit\n- ✅ Publishing a draft (draft→published) checks limit\n- ✅ Editing already-published articles does NOT recheck limit\n- ✅ Draft articles are unlimited (do not count toward limit)\n- ✅ Limits are per calendar month (reset on 1st of each month)\n\n**Article Ordering in Listings:**\nDefault ordering prioritizes boosted articles and subscription tiers:\n1. **Boosted articles** - Always appear first (regardless of author's plan)\n2. **Premium author articles** - Second priority\n3. **Medium author articles** - Third priority\n4. **Basic author articles** - Fourth priority\n5. **Creation date** - Within each tier, sorted by date\n\n**Authorization:**\n- **Public endpoints**: List Articles, Get Single Article (no auth required)\n- **Protected endpoints**: Create, Update, Delete (requires auth)\n- **Author-only**: Only article owner can update or delete\n\n**Update/Delete Response:**\nBoth update and delete operations return `204 No Content` on success. To view updated data, make a separate GET request."
+		},
+		{
+			"name": "Boost",
+			"item": [
+				{
+					"name": "Boost Article",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}",
+									"if (!pm.collectionVariables.get('article_id')) {",
+									"    console.error('No article_id found. Please create an article first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('boost_client_secret', response.client_secret);",
+									"    console.log('Article boost initiated');",
+									"    console.log('Article ID:', pm.collectionVariables.get('article_id'));",
+									"    console.log('Client Secret:', response.client_secret);",
+									"    console.log('');",
+									"    console.log('NEXT STEP: Use this client_secret with Stripe.js to confirm payment.');",
+									"    console.log('Article will be boosted after payment succeeds via webhook.');",
+									"    console.log('Boosted articles appear at the TOP of all listings.');",
+									"} else if (pm.response.code === 409) {",
+									"    const response = pm.response.json();",
+									"    console.log('Article is already boosted (expected if run multiple times)');",
+									"    console.log('Error message:', response.message);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{base_url}}/articles/{{article_id}}/boost",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles",
+								"{{article_id}}",
+								"boost"
+							]
+						},
+						"description": "Boost an article to appear at top of listings.\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Only the article's author can boost it\n\n**Request:**\n- No payload required\n- Uses `{{article_id}}` from previous article creation\n\n**Response (200):**\n- `client_secret`: Stripe PaymentIntent client secret for payment confirmation\n- Article will be boosted after payment succeeds\n\n**Response (409 Conflict):**\n- Article is already boosted\n- `message`: \"This article is already boosted.\"\n- Each article can only be boosted once\n\n**Response (403):**\n- Forbidden - User is not the article author\n\n**Response (404):**\n- Article not found\n\n**Boost Pricing:**\n- Default: €1 (100 cents)\n- Configurable via `STRIPE_BOOST_PRICE` environment variable\n\n**Payment Flow:**\n1. API creates Stripe PaymentIntent and returns `client_secret`\n2. Frontend uses Stripe.js to confirm payment with test card:\n   - Card: `4242 4242 4242 4242`\n   - Expiry: Any future date (e.g., 12/34)\n   - CVC: Any 3 digits (e.g., 123)\n   - ZIP: Any 5 digits (e.g., 12345)\n3. Stripe webhook confirms payment and marks article as boosted\n4. Article's `boosted_at` timestamp is set\n\n**Boost Behavior:**\n- **Priority Positioning**: Boosted articles ALWAYS appear first in listings\n- **Plan Override**: Boost supersedes subscription plan ordering\n  - Even Basic plan authors can have top-positioned articles via boost\n- **Permanent**: Boost does not expire (one-time payment)\n- **One per article**: Each article can only be boosted once\n\n**Listing Order After Boost:**\n1. ⭐ **Boosted articles** (any plan) - TOP priority\n2. Premium author articles (not boosted)\n3. Medium author articles (not boosted)\n4. Basic author articles (not boosted)\n\n**Use Cases:**\n- Promote important articles\n- Increase article visibility\n- Appear above higher-tier subscription articles\n- Marketing campaigns or featured content\n\n**Note:** In this collection, we're demonstrating the boost endpoint. The payment confirmation would happen in a frontend application using Stripe.js. For testing, you can manually trigger the webhook or use Stripe CLI to simulate successful payment."
+					},
+					"response": []
+				},
+				{
+					"name": "List Articles (Verify Boost Order)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/articles?include=author&filter[status]=published",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles"
+							],
+							"query": [
+								{
+									"key": "include",
+									"value": "author",
+									"description": "Eager load author to see subscription plan"
+								},
+								{
+									"key": "filter[status]",
+									"value": "published",
+									"description": "Show only published articles"
+								}
+							]
+						},
+						"description": "Verify boosted article positioning in listings.\n\n**Authentication:** Not required (public endpoint)\n\n**Purpose:**\nThis is the same endpoint as \"List Articles (Public)\" but with focus on verifying boost behavior. After boosting an article, this request demonstrates that boosted articles appear at the top of listings regardless of author subscription plan.\n\n**Expected Article Order:**\n1. ⭐ **Boosted articles** (`is_boosted: true`) - Appear FIRST\n   - Even if author has Basic subscription\n   - Multiple boosted articles sorted by date\n2. **Premium author articles** (not boosted) - Second priority\n3. **Medium author articles** (not boosted) - Third priority  \n4. **Basic author articles** (not boosted) - Fourth priority\n5. Within each tier, sorted by creation date (newest first)\n\n**Response Fields to Check:**\n- `is_boosted`: Boolean indicating boost status\n- `author.subscription.plan`: Author's subscription plan (if included)\n- `created_at`: Article creation timestamp\n\n**Verification Steps:**\n1. Boost an article using \"Boost Article\" request\n2. Confirm payment via Stripe (or simulate webhook in testing)\n3. Run this request\n4. Verify boosted article appears at top, even if author has Basic plan\n5. Verify non-boosted Premium articles appear after boosted Basic articles\n\n**Example Scenario:**\n- **Article A**: Basic plan author, boosted → Position 1 (TOP)\n- **Article B**: Premium plan author, not boosted → Position 2\n- **Article C**: Medium plan author, not boosted → Position 3\n- **Article D**: Basic plan author, not boosted → Position 4\n\n**Boost Supersedes Plan:**\nThe key insight is that boost payment allows ANY author (regardless of subscription tier) to achieve top positioning. This creates a fair monetization model where visibility isn't permanently tied to monthly subscription cost.\n\n**Use Cases:**\n- Verify boost functionality works\n- Demonstrate plan-independent promotion\n- Test article sorting algorithm\n- Validate boosted articles are prioritized correctly\n\n**Note:** This endpoint is identical to \"List Articles (Public)\" but focuses on boost verification. Use query parameters to filter and sort as needed."
+					},
+					"response": []
+				}
+			],
+			"description": "Article boost endpoints for priority promotion via payment.\n\n**Overview:**\nThe boost feature allows authors to promote their articles to the top of public listings through a one-time payment, regardless of their subscription plan. This provides an additional monetization avenue and ensures fair visibility opportunities for all authors.\n\n**Flow:**\n1. **Boost Article** - Initiate boost payment for an article\n2. **List Articles (Verify Boost Order)** - Confirm boosted article appears at top\n\n**Boost Mechanics:**\n\n**Pricing:**\n- Default: €1 (100 cents)\n- Configurable via `STRIPE_BOOST_PRICE` environment variable\n- One-time payment (not recurring)\n\n**Payment Flow:**\n1. Author requests boost via `POST /articles/{id}/boost`\n2. API creates Stripe PaymentIntent and returns `client_secret`\n3. Frontend confirms payment using Stripe.js with test card\n4. Stripe webhook processes `payment_intent.succeeded` event\n5. Article's `boosted_at` timestamp is set (marks as boosted)\n6. Article immediately appears at top of listings\n\n**Boost Behavior:**\n- **Permanent**: One-time payment, boost never expires\n- **Unique**: Each article can only be boosted once (409 error if already boosted)\n- **Priority Positioning**: Boosted articles ALWAYS appear first in listings\n- **Plan-Independent**: Works for all subscription tiers (Basic, Medium, Premium)\n\n**Article Ordering After Boost:**\n1. ⭐ **Boosted articles** (any plan) - TOP position\n   - Multiple boosted articles sorted by date\n2. **Premium plan articles** (not boosted)\n3. **Medium plan articles** (not boosted)\n4. **Basic plan articles** (not boosted)\n5. Within each tier, sorted by creation date\n\n**Key Insights:**\n- Boost allows Basic plan authors to achieve top visibility\n- Provides alternative monetization beyond subscriptions\n- Creates equitable promotion opportunity for all authors\n- Demonstrates multi-tier prioritization (boost > plan > date)\n\n**Testing with Stripe:**\nUse test card for boost payments:\n- Card: `4242 4242 4242 4242`\n- Expiry: Any future date (e.g., 12/34)\n- CVC: Any 3 digits (e.g., 123)\n- ZIP: Any 5 digits (e.g., 12345)\n\n**Authorization:**\n- Only article author can boost their own articles\n- Requires authentication (Bearer token)\n\n**Error Handling:**\n- **409 Conflict**: Article is already boosted (cannot boost twice)\n- **403 Forbidden**: User is not the article author\n- **404 Not Found**: Article does not exist\n\n**Use Cases:**\n- Promote important or time-sensitive articles\n- Increase article visibility for marketing campaigns\n- Feature specific content regardless of subscription tier\n- Level the playing field for Basic plan authors\n\n**Note:** In production, the frontend would use Stripe.js to confirm the payment. This collection demonstrates the API flow up to receiving the `client_secret`. For local testing, use Stripe CLI to forward webhooks."
 		}
 	],
 	"variable": [
@@ -1004,6 +1123,11 @@
 		},
 		{
 			"key": "client_secret",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "boost_client_secret",
 			"value": "",
 			"type": "string"
 		}
