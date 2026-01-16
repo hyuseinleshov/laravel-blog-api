@@ -56,23 +56,24 @@ class ProcessStripeWebhookAction
             return;
         }
 
-        $post = Post::find($postId);
-        if (! $post) {
-            Log::error('Post not found for boost payment', [
-                'post_id' => $postId,
-                'payment_intent_id' => $paymentIntent->id,
-            ]);
+        DB::transaction(function () use ($postId, $paymentIntent) {
+            $post = Post::lockForUpdate()->find($postId);
 
-            return;
-        }
+            if (! $post) {
+                Log::error('Post not found for boost payment', [
+                    'post_id' => $postId,
+                    'payment_intent_id' => $paymentIntent->id,
+                ]);
 
-        if ($post->boost_transaction_id === $paymentIntent->id) {
-            Log::info('Boost webhook already processed for payment intent: '.$paymentIntent->id);
+                return;
+            }
 
-            return;
-        }
+            if ($post->boost_transaction_id === $paymentIntent->id) {
+                Log::info('Boost webhook already processed for payment intent: '.$paymentIntent->id);
 
-        DB::transaction(function () use ($post, $paymentIntent) {
+                return;
+            }
+
             $post->update([
                 'boosted_at' => now(),
                 'boost_transaction_id' => $paymentIntent->id,

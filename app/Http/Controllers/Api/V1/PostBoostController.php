@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Post\BoostPostAction;
+use App\Exceptions\PostAlreadyBoostedException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BoostPostRequest;
 use App\Models\Post;
-use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
@@ -20,12 +20,8 @@ class PostBoostController extends Controller
             $result = $this->boostPostAction->execute($post);
 
             return response()->json($result);
-        } catch (Exception $e) {
-            if ($e->getMessage() === 'This post is already boosted.') {
-                return response()->json(['message' => $e->getMessage()], Response::HTTP_CONFLICT);
-            }
-
-            throw $e;
+        } catch (PostAlreadyBoostedException $e) {
+            return response()->json(['message' => $e->getMessage()], Response::HTTP_CONFLICT);
         }
     }
 }

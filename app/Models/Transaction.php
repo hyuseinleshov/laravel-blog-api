@@ -40,4 +40,9 @@ class Transaction extends Model
     {
         return $this->belongsTo(Subscription::class);
     }
+
+    public function post(): BelongsTo
+    {
+        return $this->belongsTo(Post::class);
+    }
 }
