@@ -14,6 +14,8 @@ This project demonstrates Laravel development practices including clean architec
 - **User Attribution**: Posts are associated with authors
 - **Transaction History**: Complete payment tracking and audit trail
 - **Publishing Limits**: Enforces monthly post limits based on subscription plan (Basic: 2, Medium: 10, Premium: Unlimited), resets each calendar month, with a 403 Forbidden error response for violations.
+- **Post Boost**: Authors can pay €1 to boost their post to the top of listings via Stripe payment
+- **Subscription-Based Ordering**: Public post listings prioritize boosted posts, then Premium, Medium, and Basic authors
 - **Rate Limiting**: Throttled authentication endpoints (5 requests per minute)
 - **Admin Panel**: Filament-powered UI for managing posts, tags, subscriptions, and transactions
 - **Comprehensive Testing**: Feature tests with Pest framework covering all subscription flows
@@ -71,7 +73,13 @@ php artisan make:filament-user
 # Start development server
 php artisan serve
 
-# For Stripe integration (optional), add test keys to .env and use Stripe CLI:
+# For Stripe integration (optional), add test keys to .env:
+# STRIPE_KEY=pk_test_...
+# STRIPE_SECRET=sk_test_...
+# STRIPE_WEBHOOK_SECRET=whsec_...
+# STRIPE_BOOST_PRICE=100  (optional, defaults to 100 cents / €1)
+
+# Then use Stripe CLI for local webhook testing:
 # stripe listen --forward-to http://localhost:8000/api/v1/webhooks/stripe
 ```
 
@@ -116,11 +124,12 @@ Basic plan is free and activated immediately. Paid plans (Medium/Premium) return
 ### Resource Endpoints
 
 **Posts:**
-- `GET /api/v1/posts` - List all posts (public)
+- `GET /api/v1/posts` - List all posts (public, ordered by: boosted → Premium → Medium → Basic → date)
 - `GET /api/v1/posts/{id}` - Get single post (public)
 - `POST /api/v1/posts` - Create post (authenticated, auto-assigned to author, subject to plan limits)
 - `PUT /api/v1/posts/{id}` - Update post (authenticated, author only, publishing drafts subject to limits)
 - `DELETE /api/v1/posts/{id}` - Delete post (authenticated, author only)
+- `POST /api/v1/posts/{post}/boost` - Boost post to top of listings (authenticated, author only, €1 Stripe payment)
 
 **Publishing Limits:**
 Posts are subject to monthly publishing limits based on subscription plans (resets each calendar month):
