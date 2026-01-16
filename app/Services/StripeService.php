@@ -29,6 +29,10 @@ class StripeService
         return PaymentIntent::create([
             'amount' => $plan->getPrice(),
             'currency' => 'eur',
+            'automatic_payment_methods' => [
+                'enabled' => true,
+                'allow_redirects' => 'never',
+            ],
             'metadata' => [
                 'author_id' => $author->id,
                 'plan' => $plan->value,
@@ -54,6 +58,10 @@ class StripeService
         return PaymentIntent::create([
             'amount' => config('services.stripe.prices.boost_price'),
             'currency' => 'eur',
+            'automatic_payment_methods' => [
+                'enabled' => true,
+                'allow_redirects' => 'never',
+            ],
             'metadata' => [
                 'article_id' => $article->id,
                 'author_id' => $author->id,
