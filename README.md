@@ -155,7 +155,157 @@ Posts are subject to monthly publishing limits based on subscription plans (rese
 - **Auto-assignment**: `author_id` prevents privilege escalation
 - **Token Revocation**: Immediate access termination on logout
 
-For detailed API requests, responses, and interactive testing, see the Postman collection below.
+## Postman Collection
+
+A comprehensive Postman collection is included for interactive API testing and demonstration of all features. The collection covers the complete user journey from registration to article boosting.
+
+### Import Collection
+
+1. Import `hyusein-blog-api.postman_collection.json` into Postman
+2. Set the `base_url` collection variable (default: `http://localhost:8000/api/v1`)
+3. Execute requests sequentially or explore individual endpoints
+
+### Collection Structure
+
+The collection is organized into four main folders:
+
+**1. Auth**
+- Register Author - Create new account (auto-assigns Basic subscription)
+- Login - Authenticate and receive token (captured automatically)
+- Get Current User - Verify authentication and get profile
+- Logout - Revoke token and end session
+
+**2. Subscriptions**
+- Checkout Basic Plan - Free plan, activates immediately
+- Checkout Medium Plan - €2/month, returns `client_secret` for payment
+- Checkout Premium Plan - €10/month, returns `client_secret` for payment
+- Get Active Subscription - View current subscription details
+
+**3. Articles**
+- Create Article (Draft) - Unlimited, does not count toward limits
+- Create Article (Published - First) - Should succeed (1/2 for Basic)
+- Create Article (Published - Second) - Should succeed (2/2 for Basic)
+- Create Article (Published - Limit Exceeded) - Expected 403 error
+- List Articles (Public) - View all articles with plan-based ordering
+- Get Single Article - Retrieve specific article details
+- Update Article - Modify content or status (author only)
+- Delete Article - Remove article permanently (author only)
+
+**4. Boost**
+- Boost Article - Pay €1 to promote article to top position
+- List Articles (Verify Boost Order) - Confirm boosted article appears first
+
+### Automated Features
+
+The collection includes several automation features for seamless testing:
+
+**Variable Capture:**
+- `auth_token` - Automatically captured from login response
+- `author_id` - Captured from registration/login
+- `article_id` - Captured from article creation
+- `subscription_id` - Captured from subscription checkout
+- `client_secret` - Captured from paid checkouts and boost
+
+**Pre-request Scripts:**
+- Validate authentication token presence before protected requests
+- Provide helpful error messages if dependencies are missing
+
+**Test Scripts:**
+- Capture response data into variables for downstream requests
+- Log important information to console for debugging
+- Provide next-step guidance for complex flows
+
+### Testing Workflows
+
+**Complete Flow (Happy Path):**
+1. Register Author → Login (captures token)
+2. Checkout Basic Plan (free, activates immediately)
+3. Create Article (Draft) → succeeds (unlimited drafts)
+4. Create Published Article (First) → succeeds (1/2 limit)
+5. Create Published Article (Second) → succeeds (2/2 limit reached)
+6. List Articles → verify articles appear in correct order
+7. Boost Article → receive `client_secret` for payment
+8. List Articles (Verify Boost) → confirm boosted article at top
+
+**Testing Publishing Limits:**
+1. Login with Basic plan author
+2. Create Published Article (First) → 201 Created
+3. Create Published Article (Second) → 201 Created
+4. Create Published Article (Third) → 403 Forbidden (limit exceeded)
+5. Observe detailed error message with plan and limit information
+
+**Testing Subscription Upgrades:**
+1. Login → Get Active Subscription (shows Basic)
+2. Checkout Medium Plan → receive `client_secret`
+3. (In production: confirm payment via Stripe.js)
+4. (Webhook activates subscription)
+5. Get Active Subscription → should show Medium plan
+6. Can now publish up to 10 articles/month
+
+**Testing Article Boost:**
+1. Create and publish an article
+2. Boost Article → receive `client_secret`
+3. (In production: confirm payment via Stripe.js)
+4. (Webhook marks article as boosted)
+5. List Articles → boosted article appears first, above Premium articles
+
+### Stripe Testing
+
+For paid subscriptions and boost payments, use Stripe test card:
+
+```
+Card Number: 4242 4242 4242 4242
+Expiry: Any future date (e.g., 12/34)
+CVC: Any 3 digits (e.g., 123)
+ZIP: Any 5 digits (e.g., 12345)
+```
+
+**Note:** The Postman collection demonstrates the API checkout flow (receiving `client_secret`). In production, the frontend would use Stripe.js to confirm payments. For local testing, use Stripe CLI to simulate webhooks:
+
+```bash
+stripe listen --forward-to http://localhost:8000/api/v1/webhooks/stripe
+```
+
+### Collection Variables
+
+The collection uses the following variables:
+
+| Variable | Description | Auto-Captured |
+|----------|-------------|---------------|
+| `base_url` | API base URL | No (set manually) |
+| `auth_token` | Bearer token for authentication | Yes (from login) |
+| `author_id` | Current author ID | Yes (from register/login) |
+| `article_id` | Last created article ID | Yes (from article creation) |
+| `subscription_id` | Last created subscription ID | Yes (from checkout) |
+| `client_secret` | Stripe PaymentIntent secret | Yes (from paid checkouts) |
+| `boost_client_secret` | Stripe PaymentIntent for boost | Yes (from boost) |
+
+### Expected Outcomes
+
+**Successful Requests:**
+- Registration: 201 Created with author profile
+- Login: 200 OK with token and author data
+- Article creation (within limit): 201 Created with article data
+- Article update/delete: 204 No Content
+- Subscription checkout (Basic): 201 with active status
+- Subscription checkout (Paid): 201 with pending status and `client_secret`
+
+**Expected Errors (Demonstrating Limits):**
+- Publishing limit exceeded: 403 Forbidden with detailed error message
+- Already boosted article: 409 Conflict
+- Unauthorized access: 403 Forbidden
+- Invalid credentials: 401 Unauthorized
+
+### Tips for Using Collection
+
+1. **Execute in Order:** Follow folder order (Auth → Subscriptions → Articles → Boost) for first run
+2. **Check Console:** View captured variables and next steps in Postman console
+3. **Re-run Flows:** After initial setup, you can jump to any endpoint
+4. **Fresh Start:** Clear collection variables to reset state between test runs
+5. **Multiple Authors:** Change email in registration to test with multiple accounts
+6. **Plan Testing:** Use different subscription plans to test varying article limits
+
+For detailed request/response documentation, see the descriptions within each Postman request.
 
 ### Error Responses
 
