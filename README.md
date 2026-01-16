@@ -296,10 +296,37 @@ Paid features (Medium/Premium subscriptions, article boost) require webhook acti
 
 **Method 1: Stripe CLI (Recommended)**
 ```bash
+# 1. Start Stripe webhook forwarding (keep this running in separate terminal)
 stripe listen --forward-to http://localhost:8000/api/v1/webhooks/stripe
-# Copy webhook secret to STRIPE_WEBHOOK_SECRET in .env
-# Restart server, then trigger: stripe trigger payment_intent.succeeded
+
+# 2. Copy the webhook signing secret (whsec_...) to .env
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# 3. Restart Laravel server
+php artisan serve
+
+# 4. Trigger webhook for subscription activation (in another terminal)
+stripe trigger payment_intent.succeeded \
+  --add payment_intent:metadata.author_id=YOUR_AUTHOR_ID \
+  --add payment_intent:metadata.plan=premium \
+  --add payment_intent:metadata.type=subscription
+
+# 5. For boost activation
+stripe trigger payment_intent.succeeded \
+  --add payment_intent:metadata.author_id=YOUR_AUTHOR_ID \
+  --add payment_intent:metadata.article_id=YOUR_ARTICLE_ID \
+  --add payment_intent:metadata.type=boost
 ```
+
+**Important:** Replace `YOUR_AUTHOR_ID` and `YOUR_ARTICLE_ID` with actual IDs from your API responses.
+
+**How it Works:**
+1. After calling `/subscriptions/checkout` or `/articles/{id}/boost`, the API creates a pending subscription/boost and returns a `client_secret`
+2. The Stripe CLI creates a test PaymentIntent and triggers the `payment_intent.succeeded` event
+3. The metadata you provide (`author_id`, `plan`, `type`) is included in the webhook payload
+4. Your Laravel webhook handler receives the event, validates the signature, and activates the subscription/boost
+5. Database is updated: subscription status changes from `pending` to `active`, or article receives `boosted_at` timestamp
+6. Transaction record is created for audit trail
 
 **Method 2: Workarounds Folder (Quick Testing)**
 - Use "Simulate Webhook - Activate Subscription" for subscriptions
