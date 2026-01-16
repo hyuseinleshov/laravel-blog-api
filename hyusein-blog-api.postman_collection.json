@@ -1,0 +1,246 @@
+{
+	"info": {
+		"_postman_id": "hyusein-blog-api-2026",
+		"name": "Hyusein Blog API",
+		"description": "Complete API testing collection for Laravel Blog API\n\n## Quick Start\n\n1. Import this collection into Postman\n2. Set the `base_url` collection variable to your API base URL (default: `http://localhost:8000/api/v1`)\n3. Execute requests in order: Auth → Subscriptions → Articles → Boost\n4. Token management is automatic via test scripts\n\n## Execution Flow\n\n1. **Auth**: Register → Login (captures token) → Get Current User → Logout\n2. **Subscriptions**: Checkout Basic/Medium/Premium → View Active Subscription\n3. **Articles**: Create → List → Update → Delete (demonstrates publishing limits)\n4. **Boost**: Boost Article → Verify Priority Ordering\n\n## Variables\n\n- `base_url`: API base URL (collection variable)\n- `auth_token`: Captured automatically from login\n- `author_id`: Captured from registration/login\n- `article_id`: Captured from article creation\n- `subscription_id`: Captured from checkout\n\n## Subscription Plans\n\n- **Basic**: €0 (free), 2 articles/month - auto-assigned on registration\n- **Medium**: €2 (200 cents), 10 articles/month\n- **Premium**: €10 (1000 cents), unlimited articles\n\n## Stripe Testing\n\nFor paid subscriptions and boost, use Stripe test card:\n- Card: `4242 4242 4242 4242`\n- Expiry: Any future date\n- CVC: Any 3 digits\n- ZIP: Any 5 digits\n\nNote: Paid plans return `client_secret` for frontend payment confirmation. In production flow, the frontend would use Stripe.js to confirm the payment.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register Author",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('author_id', response.data.id);",
+									"    console.log('Author registered with ID:', response.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Test Author\",\n    \"email\": \"testauthor@example.com\",\n    \"password\": \"password123\",\n    \"password_confirmation\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Register a new author account.\n\n**Request:**\n- `name`: Author's full name (required)\n- `email`: Unique email address (required)\n- `password`: Minimum 8 characters (required)\n- `password_confirmation`: Must match password (required)\n\n**Response (201):**\n- Returns author profile with ID, name, email, status, and timestamps\n- Automatically assigns Basic subscription to new authors\n\n**Rate Limit:** 5 requests per minute\n\n**Note:** After registration, use the Login request to get an authentication token."
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('auth_token', response.token);",
+									"    pm.collectionVariables.set('author_id', response.author.id);",
+									"    console.log('Login successful. Token captured.');",
+									"    console.log('Author ID:', response.author.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"testauthor@example.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Authenticate and receive access token.\n\n**Request:**\n- `email`: Registered author email (required)\n- `password`: Author password (required)\n\n**Response (200):**\n- `token`: Bearer token for authenticated requests (auto-captured)\n- `author`: Author profile with ID, name, email, and status\n\n**Errors:**\n- `401 Unauthorized`: Invalid credentials\n- `403 Forbidden`: Account is not active\n\n**Rate Limit:** 5 requests per minute\n\n**Note:** Token is automatically captured and applied to all subsequent authenticated requests."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"me"
+							]
+						},
+						"description": "Retrieve the authenticated author's profile.\n\n**Authentication:** Required (Bearer token)\n\n**Response (200):**\n- Returns complete author profile including:\n  - ID, name, email, status\n  - Account creation and update timestamps\n  - Active subscription details (if loaded)\n\n**Use Case:**\n- Verify authentication is working\n- Get current author details\n- Check account status\n\n**Note:** Requires valid authentication token from Login request."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 204) {",
+									"    console.log('Logout successful. Token revoked.');",
+									"    // Optionally clear token after logout",
+									"    // pm.collectionVariables.unset('auth_token');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"logout"
+							]
+						},
+						"description": "Revoke the current authentication token.\n\n**Authentication:** Required (Bearer token)\n\n**Response (204):**\n- No content returned\n- Token is revoked and can no longer be used\n\n**Use Case:**\n- End authenticated session\n- Invalidate current token\n- Security best practice when session ends\n\n**Note:** After logout, you'll need to login again to get a new token for authenticated requests."
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication endpoints for author registration, login, and session management.\n\n**Flow:**\n1. **Register Author** - Create new account (auto-assigns Basic subscription)\n2. **Login** - Get authentication token (captured automatically)\n3. **Get Current User** - Verify authentication and get profile\n4. **Logout** - Revoke token and end session\n\n**Rate Limiting:** All auth endpoints are limited to 5 requests per minute to prevent brute force attacks.\n\n**Token Management:** The authentication token is automatically captured from the Login response and applied to all subsequent authenticated requests via the `{{auth_token}}` variable."
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "author_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "article_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "subscription_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
