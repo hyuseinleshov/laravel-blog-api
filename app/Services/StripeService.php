@@ -61,4 +61,9 @@ class StripeService
             ],
         ]);
     }
+
+    public function constructWebhookEvent(string $payload, string $signature)
+    {
+        return Webhook::constructEvent($payload, $signature, $this->webhookSecret);
+    }
 }

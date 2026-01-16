@@ -7,6 +7,7 @@ use App\Models\Author;
 use App\Models\Subscription;
 use App\Models\Transaction;
 use App\Services\StripeService;
+use Stripe\Event;
 
 test('webhook with invalid signature returns 200 for stripe', function () {
     $stripeMock = \Mockery::mock(StripeService::class);
@@ -16,7 +17,7 @@ test('webhook with invalid signature returns 200 for stripe', function () {
 
     $this->app->instance(StripeService::class, $stripeMock);
 
-    $response = $this->post('/api/v1/webhooks/stripe', [], [
+    $response = $this->postJson('/api/v1/webhooks/stripe', [], [
         'Stripe-Signature' => 'invalid_signature',
     ]);
 
@@ -31,7 +32,7 @@ test('webhook is accessible without authentication', function () {
 
     $this->app->instance(StripeService::class, $stripeMock);
 
-    $response = $this->post('/api/v1/webhooks/stripe', [], [
+    $response = $this->postJson('/api/v1/webhooks/stripe', [], [
         'Stripe-Signature' => 'test_signature',
     ]);
 
@@ -40,36 +41,34 @@ test('webhook is accessible without authentication', function () {
 
 test('webhook with payment_intent.succeeded creates subscription', function () {
     $author = Author::factory()->create();
-
     $paymentIntentId = 'pi_test_'.uniqid();
 
-    $mockPaymentIntent = (object) [
-        'id' => $paymentIntentId,
-        'amount' => 200,
-        'currency' => 'eur',
-        'metadata' => (object) [
-            'author_id' => $author->id,
-            'plan' => 'medium',
-        ],
-        'payment_method' => 'pm_test_123',
-    ];
-
-    $mockEvent = (object) [
+    $mockEventPayload = [
         'type' => 'payment_intent.succeeded',
-        'data' => (object) ['object' => $mockPaymentIntent],
+        'data' => [
+            'object' => [
+                'id' => $paymentIntentId,
+                'object' => 'payment_intent',
+                'amount' => 200,
+                'currency' => 'eur',
+                'metadata' => [
+                    'author_id' => $author->id,
+                    'plan' => 'medium',
+                    'type' => 'subscription',
+                ],
+                'payment_method' => 'pm_test_123',
+            ],
+        ],
     ];
+    $mockEvent = Event::constructFrom($mockEventPayload);
 
     $stripeMock = \Mockery::mock(StripeService::class);
-    $stripeMock->shouldReceive('verifyWebhookSignature')
-        ->once()
-        ->andReturn(true);
-    $stripeMock->shouldReceive('constructWebhookEvent')
-        ->once()
-        ->andReturn($mockEvent);
+    $stripeMock->shouldReceive('verifyWebhookSignature')->once()->andReturn(true);
+    $stripeMock->shouldReceive('constructWebhookEvent')->once()->andReturn($mockEvent);
 
     $this->app->instance(StripeService::class, $stripeMock);
 
-    $response = $this->post('/api/v1/webhooks/stripe', [], [
+    $response = $this->postJson('/api/v1/webhooks/stripe', $mockEventPayload, [
         'Stripe-Signature' => 'valid_signature',
     ]);
 
@@ -91,36 +90,34 @@ test('webhook with payment_intent.succeeded creates subscription', function () {
 
 test('webhook creates transaction record with correct data', function () {
     $author = Author::factory()->create();
-
     $paymentIntentId = 'pi_test_'.uniqid();
 
-    $mockPaymentIntent = (object) [
-        'id' => $paymentIntentId,
-        'amount' => 1000,
-        'currency' => 'eur',
-        'metadata' => (object) [
-            'author_id' => $author->id,
-            'plan' => 'premium',
-        ],
-        'payment_method' => 'pm_test_456',
-    ];
-
-    $mockEvent = (object) [
+    $mockEventPayload = [
         'type' => 'payment_intent.succeeded',
-        'data' => (object) ['object' => $mockPaymentIntent],
+        'data' => [
+            'object' => [
+                'id' => $paymentIntentId,
+                'object' => 'payment_intent',
+                'amount' => 1000,
+                'currency' => 'eur',
+                'metadata' => [
+                    'author_id' => $author->id,
+                    'plan' => 'premium',
+                    'type' => 'subscription',
+                ],
+                'payment_method' => 'pm_test_456',
+            ],
+        ],
     ];
+    $mockEvent = Event::constructFrom($mockEventPayload);
 
     $stripeMock = \Mockery::mock(StripeService::class);
-    $stripeMock->shouldReceive('verifyWebhookSignature')
-        ->once()
-        ->andReturn(true);
-    $stripeMock->shouldReceive('constructWebhookEvent')
-        ->once()
-        ->andReturn($mockEvent);
+    $stripeMock->shouldReceive('verifyWebhookSignature')->once()->andReturn(true);
+    $stripeMock->shouldReceive('constructWebhookEvent')->once()->andReturn($mockEvent);
 
     $this->app->instance(StripeService::class, $stripeMock);
 
-    $response = $this->post('/api/v1/webhooks/stripe', [], [
+    $response = $this->postJson('/api/v1/webhooks/stripe', $mockEventPayload, [
         'Stripe-Signature' => 'valid_signature',
     ]);
 
@@ -139,9 +136,7 @@ test('webhook creates transaction record with correct data', function () {
     ]);
 
     $transaction = Transaction::where('author_id', $author->id)->first();
-    expect($transaction->metadata)->toHaveKey('payment_intent');
     expect($transaction->metadata['payment_intent'])->toBe($paymentIntentId);
-    expect($transaction->metadata)->toHaveKey('payment_method');
     expect($transaction->metadata['payment_method'])->toBe('pm_test_456');
 });
 
@@ -158,33 +153,31 @@ test('duplicate webhook does not create duplicate subscription', function () {
         'stripe_payment_intent_id' => $paymentIntentId,
     ]);
 
-    $mockPaymentIntent = (object) [
-        'id' => $paymentIntentId,
-        'amount' => 200,
-        'currency' => 'eur',
-        'metadata' => (object) [
-            'author_id' => $author->id,
-            'plan' => 'medium',
-        ],
-        'payment_method' => 'pm_test_123',
-    ];
-
-    $mockEvent = (object) [
+    $mockEventPayload = [
         'type' => 'payment_intent.succeeded',
-        'data' => (object) ['object' => $mockPaymentIntent],
+        'data' => [
+            'object' => [
+                'id' => $paymentIntentId,
+                'object' => 'payment_intent',
+                'amount' => 200,
+                'currency' => 'eur',
+                'metadata' => [
+                    'author_id' => $author->id,
+                    'plan' => 'medium',
+                ],
+                'payment_method' => 'pm_test_123',
+            ],
+        ],
     ];
+    $mockEvent = Event::constructFrom($mockEventPayload);
 
     $stripeMock = \Mockery::mock(StripeService::class);
-    $stripeMock->shouldReceive('verifyWebhookSignature')
-        ->once()
-        ->andReturn(true);
-    $stripeMock->shouldReceive('constructWebhookEvent')
-        ->once()
-        ->andReturn($mockEvent);
+    $stripeMock->shouldReceive('verifyWebhookSignature')->once()->andReturn(true);
+    $stripeMock->shouldReceive('constructWebhookEvent')->once()->andReturn($mockEvent);
 
     $this->app->instance(StripeService::class, $stripeMock);
 
-    $response = $this->post('/api/v1/webhooks/stripe', [], [
+    $response = $this->postJson('/api/v1/webhooks/stripe', $mockEventPayload, [
         'Stripe-Signature' => 'valid_signature',
     ]);
 
@@ -205,38 +198,36 @@ test('webhook updates pending subscription to active', function () {
         'author_id' => $author->id,
         'plan' => SubscriptionPlan::PREMIUM,
         'status' => SubscriptionStatus::PENDING,
-        'valid_from' => now()->subDay(),
+        'valid_from' => null,
         'valid_to' => null,
         'stripe_payment_intent_id' => $paymentIntentId,
     ]);
 
-    $mockPaymentIntent = (object) [
-        'id' => $paymentIntentId,
-        'amount' => 1000,
-        'currency' => 'eur',
-        'metadata' => (object) [
-            'author_id' => $author->id,
-            'plan' => 'premium',
-        ],
-        'payment_method' => 'pm_test_789',
-    ];
-
-    $mockEvent = (object) [
+    $mockEventPayload = [
         'type' => 'payment_intent.succeeded',
-        'data' => (object) ['object' => $mockPaymentIntent],
+        'data' => [
+            'object' => [
+                'id' => $paymentIntentId,
+                'object' => 'payment_intent',
+                'amount' => 1000,
+                'currency' => 'eur',
+                'metadata' => [
+                    'author_id' => $author->id,
+                    'plan' => 'premium',
+                ],
+                'payment_method' => 'pm_test_789',
+            ],
+        ],
     ];
+    $mockEvent = Event::constructFrom($mockEventPayload);
 
     $stripeMock = \Mockery::mock(StripeService::class);
-    $stripeMock->shouldReceive('verifyWebhookSignature')
-        ->once()
-        ->andReturn(true);
-    $stripeMock->shouldReceive('constructWebhookEvent')
-        ->once()
-        ->andReturn($mockEvent);
+    $stripeMock->shouldReceive('verifyWebhookSignature')->once()->andReturn(true);
+    $stripeMock->shouldReceive('constructWebhookEvent')->once()->andReturn($mockEvent);
 
     $this->app->instance(StripeService::class, $stripeMock);
 
-    $response = $this->post('/api/v1/webhooks/stripe', [], [
+    $response = $this->postJson('/api/v1/webhooks/stripe', $mockEventPayload, [
         'Stripe-Signature' => 'valid_signature',
     ]);
 
@@ -260,32 +251,30 @@ test('webhook updates pending subscription to active', function () {
 test('webhook with missing author_id metadata logs error and returns 200', function () {
     $paymentIntentId = 'pi_test_'.uniqid();
 
-    $mockPaymentIntent = (object) [
-        'id' => $paymentIntentId,
-        'amount' => 200,
-        'currency' => 'eur',
-        'metadata' => (object) [
-            'plan' => 'medium',
-        ],
-        'payment_method' => 'pm_test_123',
-    ];
-
-    $mockEvent = (object) [
+    $mockEventPayload = [
         'type' => 'payment_intent.succeeded',
-        'data' => (object) ['object' => $mockPaymentIntent],
+        'data' => [
+            'object' => [
+                'id' => $paymentIntentId,
+                'object' => 'payment_intent',
+                'amount' => 200,
+                'currency' => 'eur',
+                'metadata' => [
+                    'plan' => 'medium',
+                ],
+                'payment_method' => 'pm_test_123',
+            ],
+        ],
     ];
+    $mockEvent = Event::constructFrom($mockEventPayload);
 
     $stripeMock = \Mockery::mock(StripeService::class);
-    $stripeMock->shouldReceive('verifyWebhookSignature')
-        ->once()
-        ->andReturn(true);
-    $stripeMock->shouldReceive('constructWebhookEvent')
-        ->once()
-        ->andReturn($mockEvent);
+    $stripeMock->shouldReceive('verifyWebhookSignature')->once()->andReturn(true);
+    $stripeMock->shouldReceive('constructWebhookEvent')->once()->andReturn($mockEvent);
 
     $this->app->instance(StripeService::class, $stripeMock);
 
-    $response = $this->post('/api/v1/webhooks/stripe', [], [
+    $response = $this->postJson('/api/v1/webhooks/stripe', $mockEventPayload, [
         'Stripe-Signature' => 'valid_signature',
     ]);
 
@@ -299,32 +288,30 @@ test('webhook with missing plan metadata logs error and returns 200', function (
     $author = Author::factory()->create();
     $paymentIntentId = 'pi_test_'.uniqid();
 
-    $mockPaymentIntent = (object) [
-        'id' => $paymentIntentId,
-        'amount' => 200,
-        'currency' => 'eur',
-        'metadata' => (object) [
-            'author_id' => $author->id,
-        ],
-        'payment_method' => 'pm_test_123',
-    ];
-
-    $mockEvent = (object) [
+    $mockEventPayload = [
         'type' => 'payment_intent.succeeded',
-        'data' => (object) ['object' => $mockPaymentIntent],
+        'data' => [
+            'object' => [
+                'id' => $paymentIntentId,
+                'object' => 'payment_intent',
+                'amount' => 200,
+                'currency' => 'eur',
+                'metadata' => [
+                    'author_id' => $author->id,
+                ],
+                'payment_method' => 'pm_test_123',
+            ],
+        ],
     ];
+    $mockEvent = Event::constructFrom($mockEventPayload);
 
     $stripeMock = \Mockery::mock(StripeService::class);
-    $stripeMock->shouldReceive('verifyWebhookSignature')
-        ->once()
-        ->andReturn(true);
-    $stripeMock->shouldReceive('constructWebhookEvent')
-        ->once()
-        ->andReturn($mockEvent);
+    $stripeMock->shouldReceive('verifyWebhookSignature')->once()->andReturn(true);
+    $stripeMock->shouldReceive('constructWebhookEvent')->once()->andReturn($mockEvent);
 
     $this->app->instance(StripeService::class, $stripeMock);
 
-    $response = $this->post('/api/v1/webhooks/stripe', [], [
+    $response = $this->postJson('/api/v1/webhooks/stripe', $mockEventPayload, [
         'Stripe-Signature' => 'valid_signature',
     ]);
 
@@ -338,33 +325,31 @@ test('webhook with non-existent author logs error and returns 200', function () 
     $paymentIntentId = 'pi_test_'.uniqid();
     $nonExistentAuthorId = 99999;
 
-    $mockPaymentIntent = (object) [
-        'id' => $paymentIntentId,
-        'amount' => 200,
-        'currency' => 'eur',
-        'metadata' => (object) [
-            'author_id' => $nonExistentAuthorId,
-            'plan' => 'medium',
-        ],
-        'payment_method' => 'pm_test_123',
-    ];
-
-    $mockEvent = (object) [
+    $mockEventPayload = [
         'type' => 'payment_intent.succeeded',
-        'data' => (object) ['object' => $mockPaymentIntent],
+        'data' => [
+            'object' => [
+                'id' => $paymentIntentId,
+                'object' => 'payment_intent',
+                'amount' => 200,
+                'currency' => 'eur',
+                'metadata' => [
+                    'author_id' => $nonExistentAuthorId,
+                    'plan' => 'medium',
+                ],
+                'payment_method' => 'pm_test_123',
+            ],
+        ],
     ];
+    $mockEvent = Event::constructFrom($mockEventPayload);
 
     $stripeMock = \Mockery::mock(StripeService::class);
-    $stripeMock->shouldReceive('verifyWebhookSignature')
-        ->once()
-        ->andReturn(true);
-    $stripeMock->shouldReceive('constructWebhookEvent')
-        ->once()
-        ->andReturn($mockEvent);
+    $stripeMock->shouldReceive('verifyWebhookSignature')->once()->andReturn(true);
+    $stripeMock->shouldReceive('constructWebhookEvent')->once()->andReturn($mockEvent);
 
     $this->app->instance(StripeService::class, $stripeMock);
 
-    $response = $this->post('/api/v1/webhooks/stripe', [], [
+    $response = $this->postJson('/api/v1/webhooks/stripe', $mockEventPayload, [
         'Stripe-Signature' => 'valid_signature',
     ]);
 

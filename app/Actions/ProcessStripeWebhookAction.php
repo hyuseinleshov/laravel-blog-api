@@ -6,12 +6,14 @@ use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Enums\TransactionStatus;
 use App\Models\Author;
+use App\Models\Post;
 use App\Models\Transaction;
 use App\Repositories\SubscriptionRepository;
 use App\Services\StripeService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Stripe\Exception\SignatureVerificationException;
+use Stripe\PaymentIntent;
 
 class ProcessStripeWebhookAction
 {
@@ -30,14 +32,69 @@ class ProcessStripeWebhookAction
         $event = $this->stripeService->constructWebhookEvent($payload, $signature);
 
         if ($event->type === 'payment_intent.succeeded') {
-            $this->handlePaymentIntentSucceeded($event);
+            $this->handlePaymentIntentSucceeded($event->data->object);
         }
     }
 
-    private function handlePaymentIntentSucceeded($event): void
+    private function handlePaymentIntentSucceeded(PaymentIntent $paymentIntent): void
     {
-        $paymentIntent = $event->data->object;
+        $paymentType = $paymentIntent->metadata->type ?? 'subscription';
 
+        if ($paymentType === 'boost') {
+            $this->handleBoostPaymentSucceeded($paymentIntent);
+        } else {
+            $this->handleSubscriptionPaymentSucceeded($paymentIntent);
+        }
+    }
+
+    private function handleBoostPaymentSucceeded(PaymentIntent $paymentIntent): void
+    {
+        $postId = $paymentIntent->metadata->post_id ?? null;
+        if (! $postId) {
+            Log::error('Missing post_id in boost payment intent metadata', ['payment_intent_id' => $paymentIntent->id]);
+
+            return;
+        }
+
+        $post = Post::find($postId);
+        if (! $post) {
+            Log::error('Post not found for boost payment', [
+                'post_id' => $postId,
+                'payment_intent_id' => $paymentIntent->id,
+            ]);
+
+            return;
+        }
+
+        if ($post->boost_transaction_id === $paymentIntent->id) {
+            Log::info('Boost webhook already processed for payment intent: '.$paymentIntent->id);
+
+            return;
+        }
+
+        DB::transaction(function () use ($post, $paymentIntent) {
+            $post->update([
+                'boosted_at' => now(),
+                'boost_transaction_id' => $paymentIntent->id,
+            ]);
+
+            Transaction::create([
+                'author_id' => $post->author_id,
+                'post_id' => $post->id,
+                'stripe_payment_id' => $paymentIntent->id,
+                'amount' => $paymentIntent->amount,
+                'currency' => $paymentIntent->currency,
+                'status' => TransactionStatus::COMPLETED,
+                'metadata' => [
+                    'payment_intent' => $paymentIntent->id,
+                    'payment_method' => $paymentIntent->payment_method ?? null,
+                ],
+            ]);
+        });
+    }
+
+    private function handleSubscriptionPaymentSucceeded(PaymentIntent $paymentIntent): void
+    {
         $existingSubscription = $this->subscriptionRepository
             ->findByStripePaymentIntent($paymentIntent->id);
 
@@ -75,7 +132,7 @@ class ProcessStripeWebhookAction
                 ? $this->updateExistingSubscription($existingSubscription)
                 : $this->createNewSubscription($author, $plan, $paymentIntent->id);
 
-            $this->createTransaction($author, $subscription, $paymentIntent, $plan);
+            $this->createSubscriptionTransaction($author, $subscription, $paymentIntent, $plan);
         });
     }
 
@@ -102,7 +159,7 @@ class ProcessStripeWebhookAction
         ]);
     }
 
-    private function createTransaction(Author $author, $subscription, $paymentIntent, SubscriptionPlan $plan): void
+    private function createSubscriptionTransaction(Author $author, $subscription, $paymentIntent, SubscriptionPlan $plan): void
     {
         Transaction::create([
             'author_id' => $author->id,

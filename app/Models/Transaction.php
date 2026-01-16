@@ -15,6 +15,7 @@ class Transaction extends Model
     protected $fillable = [
         'author_id',
         'subscription_id',
+        'post_id',
         'stripe_payment_id',
         'amount',
         'currency',
