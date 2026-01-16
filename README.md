@@ -167,21 +167,30 @@ A comprehensive Postman collection is included for interactive API testing and d
 
 ### Collection Structure
 
-The collection is organized into four main folders:
+The collection is organized into 8 folders covering complete API workflows:
 
-**1. Auth**
+**1. Setup & Cleanup** (1 request)
+- Fresh Migration - Reset database to clean state (`migrate:fresh --seed`)
+
+**2. Auth** (4 requests)
 - Register Author - Create new account (auto-assigns Basic subscription)
 - Login - Authenticate and receive token (captured automatically)
 - Get Current User - Verify authentication and get profile
 - Logout - Revoke token and end session
 
-**2. Subscriptions**
+**3. Multi-Author Demo** (14 requests)
+- Complete demonstration of tier ordering with 3 authors (Basic, Medium, Premium)
+- Shows subscription hierarchy and boost priority
+- Includes article creation for each tier and verification requests
+- Demonstrates that boosted articles appear above all subscription tiers
+
+**4. Subscriptions** (4 requests)
 - Checkout Basic Plan - Free plan, activates immediately
 - Checkout Medium Plan - €2/month, returns `client_secret` for payment
 - Checkout Premium Plan - €10/month, returns `client_secret` for payment
 - Get Active Subscription - View current subscription details
 
-**3. Articles**
+**5. Articles** (8 requests)
 - Create Article (Draft) - Unlimited, does not count toward limits
 - Create Article (Published - First) - Should succeed (1/2 for Basic)
 - Create Article (Published - Second) - Should succeed (2/2 for Basic)
@@ -191,9 +200,20 @@ The collection is organized into four main folders:
 - Update Article - Modify content or status (author only)
 - Delete Article - Remove article permanently (author only)
 
-**4. Boost**
+**6. Tags** (7 requests)
+- Complete CRUD operations for tag management
+- Create, read, update, delete tags
+- Filter and sort demonstrations
+
+**7. Boost** (2 requests)
 - Boost Article - Pay €1 to promote article to top position
 - List Articles (Verify Boost Order) - Confirm boosted article appears first
+
+**8. Workarounds** (4 requests)
+- Manual webhook simulation for subscription activation
+- Manual webhook simulation for boost activation
+- Direct database updates for testing without Stripe setup
+- Shortcuts for local development and testing
 
 ### Automated Features
 
@@ -217,37 +237,47 @@ The collection includes several automation features for seamless testing:
 
 ### Testing Workflows
 
-**Complete Flow (Happy Path):**
+**Strategy A: Single Author Flow (Basic Testing)**
+Execute folders: Auth → Subscriptions → Articles
 1. Register Author → Login (captures token)
 2. Checkout Basic Plan (free, activates immediately)
 3. Create Article (Draft) → succeeds (unlimited drafts)
 4. Create Published Article (First) → succeeds (1/2 limit)
 5. Create Published Article (Second) → succeeds (2/2 limit reached)
 6. List Articles → verify articles appear in correct order
-7. Boost Article → receive `client_secret` for payment
-8. List Articles (Verify Boost) → confirm boosted article at top
+
+**Strategy B: Multi-Author Flow (Complete Testing)**
+Execute folders: Setup & Cleanup → Multi-Author Demo → Tags → Workarounds
+1. Fresh Migration → clean database
+2. Register 3 authors (Basic, Medium, Premium plans)
+3. Checkout Medium and Premium plans → receive `client_secret` for each
+4. Activate subscriptions via Workarounds folder
+5. Create article from each author
+6. List Articles → verify tier ordering (Premium → Medium → Basic)
+7. Boost Basic author's article
+8. Activate boost via Workarounds folder
+9. Final verification → boosted Basic article now appears first
 
 **Testing Publishing Limits:**
-1. Login with Basic plan author
-2. Create Published Article (First) → 201 Created
-3. Create Published Article (Second) → 201 Created
+Execute folders: Auth → Articles (requests 1-4)
+1. Login with Basic plan author (auto-assigned on registration)
+2. Create Published Article (First) → 201 Created (1/2)
+3. Create Published Article (Second) → 201 Created (2/2)
 4. Create Published Article (Third) → 403 Forbidden (limit exceeded)
 5. Observe detailed error message with plan and limit information
 
 **Testing Subscription Upgrades:**
-1. Login → Get Active Subscription (shows Basic)
-2. Checkout Medium Plan → receive `client_secret`
-3. (In production: confirm payment via Stripe.js)
-4. (Webhook activates subscription)
-5. Get Active Subscription → should show Medium plan
-6. Can now publish up to 10 articles/month
+1. Auth → Login → Get Active Subscription (shows Basic)
+2. Subscriptions → Checkout Medium Plan → receive `client_secret`
+3. Workarounds → Activate Subscription (simulates webhook)
+4. Subscriptions → Get Active Subscription → now shows Medium plan
+5. Can now publish up to 10 articles/month
 
 **Testing Article Boost:**
-1. Create and publish an article
-2. Boost Article → receive `client_secret`
-3. (In production: confirm payment via Stripe.js)
-4. (Webhook marks article as boosted)
-5. List Articles → boosted article appears first, above Premium articles
+1. Auth → Login, Articles → Create Published Article
+2. Boost → Boost Article → receive `client_secret`
+3. Workarounds → Activate Boost (simulates webhook)
+4. Articles → List Articles → boosted article appears first, above Premium articles
 
 ### Stripe Testing
 
@@ -260,11 +290,24 @@ CVC: Any 3 digits (e.g., 123)
 ZIP: Any 5 digits (e.g., 12345)
 ```
 
-**Note:** The Postman collection demonstrates the API checkout flow (receiving `client_secret`). In production, the frontend would use Stripe.js to confirm payments. For local testing, use Stripe CLI to simulate webhooks:
+**Webhook Activation Methods:**
 
+Paid features (Medium/Premium subscriptions, article boost) require webhook activation. Choose one:
+
+**Method 1: Stripe CLI (Recommended)**
 ```bash
 stripe listen --forward-to http://localhost:8000/api/v1/webhooks/stripe
+# Copy webhook secret to STRIPE_WEBHOOK_SECRET in .env
+# Restart server, then trigger: stripe trigger payment_intent.succeeded
 ```
+
+**Method 2: Workarounds Folder (Quick Testing)**
+- Use "Simulate Webhook - Activate Subscription" for subscriptions
+- Use "Simulate Webhook - Activate Boost" for article boosts
+- Or use "Direct DB" requests for instant activation without webhooks
+
+**Method 3: Frontend Integration (Production)**
+The Postman collection demonstrates the API checkout flow (receiving `client_secret`). In production, the frontend uses Stripe.js to confirm payments, which triggers real webhooks.
 
 ### Collection Variables
 
@@ -272,13 +315,18 @@ The collection uses the following variables:
 
 | Variable | Description | Auto-Captured |
 |----------|-------------|---------------|
-| `base_url` | API base URL | No (set manually) |
+| `base_url` | API base URL (default: `http://localhost:8000/api/v1`) | No (set manually) |
 | `auth_token` | Bearer token for authentication | Yes (from login) |
 | `author_id` | Current author ID | Yes (from register/login) |
 | `article_id` | Last created article ID | Yes (from article creation) |
 | `subscription_id` | Last created subscription ID | Yes (from checkout) |
 | `client_secret` | Stripe PaymentIntent secret | Yes (from paid checkouts) |
 | `boost_client_secret` | Stripe PaymentIntent for boost | Yes (from boost) |
+| `author_id_1/2/3` | Multi-author IDs (Basic, Medium, Premium) | Yes (Multi-Author Demo) |
+| `auth_token_1/2/3` | Tokens for each test author | Yes (Multi-Author Demo) |
+| `article_id_1/2/3` | Articles from each test author | Yes (Multi-Author Demo) |
+| `subscription_id_2/3` | Paid subscriptions (Medium, Premium) | Yes (Multi-Author Demo) |
+| `tag_id_1/2` | Created tags for testing | Yes (Tags folder) |
 
 ### Expected Outcomes
 
@@ -298,12 +346,15 @@ The collection uses the following variables:
 
 ### Tips for Using Collection
 
-1. **Execute in Order:** Follow folder order (Auth → Subscriptions → Articles → Boost) for first run
+1. **Choose Your Strategy:**
+   - Simple testing: Auth → Subscriptions → Articles
+   - Complete testing: Setup & Cleanup → Multi-Author Demo → Workarounds
 2. **Check Console:** View captured variables and next steps in Postman console
-3. **Re-run Flows:** After initial setup, you can jump to any endpoint
-4. **Fresh Start:** Clear collection variables to reset state between test runs
-5. **Multiple Authors:** Change email in registration to test with multiple accounts
-6. **Plan Testing:** Use different subscription plans to test varying article limits
+3. **Use Workarounds:** Activate paid subscriptions/boosts via Workarounds folder (faster than Stripe CLI)
+4. **Fresh Start:** Run "Setup & Cleanup → Fresh Migration" to reset database between test runs
+5. **Multiple Authors:** Multi-Author Demo folder handles 3 authors automatically with numbered variables
+6. **Plan Testing:** Multi-Author Demo shows tier ordering (Premium > Medium > Basic) and boost priority
+7. **Database State:** Collection modifies database; use fresh migration to avoid duplicate email errors
 
 For detailed request/response documentation, see the descriptions within each Postman request.
 
