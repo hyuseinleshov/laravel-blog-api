@@ -16,17 +16,16 @@ class PostSeeder extends Seeder
         $tags = Tag::all();
 
         $posts = [
-            ['title' => 'Getting Started with Laravel', 'content' => 'Laravel is a powerful PHP framework...', 'status' => PostStatus::PUBLISHED, 'author_id' => $authors[0]->id],
-            ['title' => 'Testing Best Practices', 'content' => 'Writing tests is crucial...', 'status' => PostStatus::PUBLISHED, 'author_id' => $authors[0]->id],
+            ['title' => 'Getting Started with Laravel', 'content' => 'Laravel is a powerful PHP framework...', 'status' => PostStatus::PUBLISHED, 'author_id' => $authors[0]->id, 'published_at' => now()->subDays(10)],
+            ['title' => 'Testing Best Practices', 'content' => 'Writing tests is crucial...', 'status' => PostStatus::PUBLISHED, 'author_id' => $authors[0]->id, 'published_at' => now()->subDays(5)],
             ['title' => 'Building REST APIs', 'content' => 'REST APIs are fundamental...', 'status' => PostStatus::DRAFT, 'author_id' => $authors[1]->id],
-            ['title' => 'PHP 8 Features', 'content' => 'PHP 8 introduced many improvements...', 'status' => PostStatus::PUBLISHED, 'author_id' => $authors[1]->id],
+            ['title' => 'PHP 8 Features', 'content' => 'PHP 8 introduced many improvements...', 'status' => PostStatus::PUBLISHED, 'author_id' => $authors[1]->id, 'published_at' => now()->subDays(3)],
             ['title' => 'Advanced Laravel Techniques', 'content' => 'Once you master the basics...', 'status' => PostStatus::ARCHIVED, 'author_id' => $authors[2]->id],
         ];
 
         foreach ($posts as $postData) {
             $post = Post::create($postData);
 
-            // Attach 1-3 random tags to each post
             $randomTags = $tags->random(rand(1, 3));
             $post->tags()->attach($randomTags->pluck('id'));
         }
