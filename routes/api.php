@@ -1,11 +1,11 @@
 <?php
 
+use App\Http\Controllers\Api\V1\ArticleBoostController;
+use App\Http\Controllers\Api\V1\ArticleController;
 use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Auth\LogoutController;
 use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\Auth\RegisterController;
-use App\Http\Controllers\Api\V1\PostBoostController;
-use App\Http\Controllers\Api\V1\PostController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\TagController;
@@ -26,11 +26,11 @@ Route::prefix('v1')->group(function () {
         Route::post('subscriptions/checkout', [SubscriptionController::class, 'checkout']);
         Route::get('subscriptions/current', [SubscriptionController::class, 'current']);
 
-        Route::post('posts/{post}/boost', PostBoostController::class);
-        Route::apiResource('posts', PostController::class)->except(['index', 'show']);
+        Route::post('articles/{article}/boost', ArticleBoostController::class);
+        Route::apiResource('articles', ArticleController::class)->except(['index', 'show']);
         Route::apiResource('tags', TagController::class)->except(['index', 'show']);
     });
 
-    Route::apiResource('posts', PostController::class)->only(['index', 'show']);
+    Route::apiResource('articles', ArticleController::class)->only(['index', 'show']);
     Route::apiResource('tags', TagController::class)->only(['index', 'show']);
 });

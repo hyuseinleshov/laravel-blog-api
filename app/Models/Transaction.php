@@ -15,7 +15,7 @@ class Transaction extends Model
     protected $fillable = [
         'author_id',
         'subscription_id',
-        'post_id',
+        'article_id',
         'stripe_payment_id',
         'amount',
         'currency',
@@ -41,8 +41,8 @@ class Transaction extends Model
         return $this->belongsTo(Subscription::class);
     }
 
-    public function post(): BelongsTo
+    public function article(): BelongsTo
     {
-        return $this->belongsTo(Post::class);
+        return $this->belongsTo(Article::class);
     }
 }

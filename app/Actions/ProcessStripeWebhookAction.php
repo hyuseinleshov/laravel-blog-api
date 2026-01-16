@@ -5,8 +5,8 @@ namespace App\Actions;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
 use App\Enums\TransactionStatus;
+use App\Models\Article;
 use App\Models\Author;
-use App\Models\Post;
 use App\Models\Transaction;
 use App\Repositories\SubscriptionRepository;
 use App\Services\StripeService;
@@ -49,39 +49,39 @@ class ProcessStripeWebhookAction
 
     private function handleBoostPaymentSucceeded(PaymentIntent $paymentIntent): void
     {
-        $postId = $paymentIntent->metadata->post_id ?? null;
-        if (! $postId) {
-            Log::error('Missing post_id in boost payment intent metadata', ['payment_intent_id' => $paymentIntent->id]);
+        $articleId = $paymentIntent->metadata->article_id ?? null;
+        if (! $articleId) {
+            Log::error('Missing article_id in boost payment intent metadata', ['payment_intent_id' => $paymentIntent->id]);
 
             return;
         }
 
-        DB::transaction(function () use ($postId, $paymentIntent) {
-            $post = Post::lockForUpdate()->find($postId);
+        DB::transaction(function () use ($articleId, $paymentIntent) {
+            $article = Article::lockForUpdate()->find($articleId);
 
-            if (! $post) {
-                Log::error('Post not found for boost payment', [
-                    'post_id' => $postId,
+            if (! $article) {
+                Log::error('Article not found for boost payment', [
+                    'article_id' => $articleId,
                     'payment_intent_id' => $paymentIntent->id,
                 ]);
 
                 return;
             }
 
-            if ($post->boost_transaction_id === $paymentIntent->id) {
+            if ($article->boost_transaction_id === $paymentIntent->id) {
                 Log::info('Boost webhook already processed for payment intent: '.$paymentIntent->id);
 
                 return;
             }
 
-            $post->update([
+            $article->update([
                 'boosted_at' => now(),
                 'boost_transaction_id' => $paymentIntent->id,
             ]);
 
             Transaction::create([
-                'author_id' => $post->author_id,
-                'post_id' => $post->id,
+                'author_id' => $article->author_id,
+                'article_id' => $article->id,
                 'stripe_payment_id' => $paymentIntent->id,
                 'amount' => $paymentIntent->amount,
                 'currency' => $paymentIntent->currency,

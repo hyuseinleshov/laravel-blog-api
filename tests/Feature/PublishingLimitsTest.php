@@ -1,10 +1,10 @@
 <?php
 
-use App\Enums\PostStatus;
+use App\Enums\ArticleStatus;
 use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
+use App\Models\Article;
 use App\Models\Author;
-use App\Models\Post;
 use App\Models\Subscription;
 
 test('basic author can create first published post', function () {
@@ -18,7 +18,7 @@ test('basic author can create first published post', function () {
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertCreated();
 });
@@ -33,14 +33,14 @@ test('basic author can create second published post', function () {
         'valid_to' => now()->addDays(25),
     ]);
 
-    Post::factory()->create([
+    Article::factory()->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertCreated();
 });
@@ -55,14 +55,14 @@ test('basic author blocked on third published post', function () {
         'valid_to' => now()->addDays(25),
     ]);
 
-    Post::factory(2)->create([
+    Article::factory(2)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertForbidden();
 });
@@ -77,14 +77,14 @@ test('basic author can create unlimited drafts', function () {
         'valid_to' => now()->addDays(25),
     ]);
 
-    Post::factory(2)->create([
+    Article::factory(2)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData(['status' => PostStatus::DRAFT->value]));
+        ->postJson('/api/v1/articles', validArticleData(['status' => ArticleStatus::DRAFT->value]));
 
     $response->assertCreated();
 });
@@ -99,14 +99,14 @@ test('error response includes correct data for basic plan', function () {
         'valid_to' => now()->addDays(25),
     ]);
 
-    Post::factory(2)->create([
+    Article::factory(2)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertForbidden()
         ->assertJson([
@@ -135,14 +135,14 @@ test('medium author can create 10 published posts', function () {
         'valid_to' => now()->addDays(25),
     ]);
 
-    Post::factory(9)->create([
+    Article::factory(9)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertCreated();
 });
@@ -157,14 +157,14 @@ test('medium author blocked on 11th published post', function () {
         'valid_to' => now()->addDays(25),
     ]);
 
-    Post::factory(10)->create([
+    Article::factory(10)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertForbidden();
 });
@@ -179,14 +179,14 @@ test('error response includes correct data for medium plan', function () {
         'valid_to' => now()->addDays(25),
     ]);
 
-    Post::factory(10)->create([
+    Article::factory(10)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertForbidden()
         ->assertJson([
@@ -211,14 +211,14 @@ test('premium author can create unlimited published posts', function () {
         'valid_to' => now()->addDays(25),
     ]);
 
-    Post::factory(20)->create([
+    Article::factory(20)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertCreated();
 });
@@ -226,14 +226,14 @@ test('premium author can create unlimited published posts', function () {
 test('author with no subscription defaults to basic', function () {
     $author = Author::factory()->create();
 
-    Post::factory(2)->create([
+    Article::factory(2)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertForbidden()
         ->assertJson([
@@ -256,14 +256,14 @@ test('author with expired subscription defaults to basic', function () {
         'valid_to' => now()->subMonth(),
     ]);
 
-    Post::factory(2)->create([
+    Article::factory(2)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertForbidden()
         ->assertJson([
@@ -286,14 +286,14 @@ test('editing published post does not recheck limit', function () {
         'valid_to' => now()->addDays(25),
     ]);
 
-    $posts = Post::factory(2)->create([
+    $posts = Article::factory(2)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->putJson("/api/v1/posts/{$posts[0]->id}", validPostData([
+        ->putJson("/api/v1/articles/{$posts[0]->id}", validArticleData([
             'title' => 'Updated Title',
             'content' => str_repeat('Updated content here with sufficient length. ', 10),
         ]));
@@ -311,23 +311,23 @@ test('publishing draft checks limit', function () {
         'valid_to' => now()->addDays(25),
     ]);
 
-    Post::factory(2)->create([
+    Article::factory(2)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
-    $draft = Post::factory()->create([
+    $draft = Article::factory()->create([
         'author_id' => $author->id,
-        'status' => PostStatus::DRAFT,
+        'status' => ArticleStatus::DRAFT,
         'published_at' => null,
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->putJson("/api/v1/posts/{$draft->id}", validPostData([
+        ->putJson("/api/v1/articles/{$draft->id}", validArticleData([
             'title' => $draft->title,
             'content' => $draft->content,
-            'status' => PostStatus::PUBLISHED->value,
+            'status' => ArticleStatus::PUBLISHED->value,
         ]));
 
     $response->assertForbidden();
@@ -343,23 +343,23 @@ test('draft to draft update does not check limit', function () {
         'valid_to' => now()->addDays(25),
     ]);
 
-    Post::factory(2)->create([
+    Article::factory(2)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
-    $draft = Post::factory()->create([
+    $draft = Article::factory()->create([
         'author_id' => $author->id,
-        'status' => PostStatus::DRAFT,
+        'status' => ArticleStatus::DRAFT,
         'published_at' => null,
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->putJson("/api/v1/posts/{$draft->id}", validPostData([
+        ->putJson("/api/v1/articles/{$draft->id}", validArticleData([
             'title' => 'Updated Draft Title',
             'content' => str_repeat('Updated draft content with sufficient length. ', 10),
-            'status' => PostStatus::DRAFT->value,
+            'status' => ArticleStatus::DRAFT->value,
         ]));
 
     $response->assertNoContent();
@@ -376,20 +376,20 @@ test('limits reset at month boundaries', function () {
     ]);
 
     $lastMonth = now()->subMonth();
-    Post::factory(2)->create([
+    Article::factory(2)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => $lastMonth->copy()->startOfMonth()->addDays(5),
     ]);
 
-    Post::factory(2)->create([
+    Article::factory(2)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => now()->subDays(3),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertForbidden();
 });
@@ -405,14 +405,14 @@ test('posts from previous month do not count toward current month', function () 
     ]);
 
     $lastMonth = now()->subMonth();
-    Post::factory(2)->create([
+    Article::factory(2)->create([
         'author_id' => $author->id,
-        'status' => PostStatus::PUBLISHED,
+        'status' => ArticleStatus::PUBLISHED,
         'published_at' => $lastMonth->copy()->startOfMonth()->addDays(5),
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertCreated();
 });
@@ -428,13 +428,13 @@ test('creating published post sets published_at timestamp', function () {
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData());
+        ->postJson('/api/v1/articles', validArticleData());
 
     $response->assertCreated();
 
-    $post = Post::where('author_id', $author->id)->first();
-    expect($post->published_at)->not->toBeNull();
-    expect($post->published_at)->toBeInstanceOf(\Carbon\Carbon::class);
+    $article = Article::where('author_id', $author->id)->first();
+    expect($article->published_at)->not->toBeNull();
+    expect($article->published_at)->toBeInstanceOf(\Carbon\Carbon::class);
 });
 
 test('creating draft does not set published_at timestamp', function () {
@@ -448,10 +448,10 @@ test('creating draft does not set published_at timestamp', function () {
     ]);
 
     $response = $this->actingAs($author, 'sanctum')
-        ->postJson('/api/v1/posts', validPostData(['status' => PostStatus::DRAFT->value]));
+        ->postJson('/api/v1/articles', validArticleData(['status' => ArticleStatus::DRAFT->value]));
 
     $response->assertCreated();
 
-    $post = Post::where('author_id', $author->id)->first();
-    expect($post->published_at)->toBeNull();
+    $article = Article::where('author_id', $author->id)->first();
+    expect($article->published_at)->toBeNull();
 });

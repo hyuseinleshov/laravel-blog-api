@@ -1,7 +1,7 @@
 <?php
 
+use App\Models\Article;
 use App\Models\Author;
-use App\Models\Post;
 use App\Models\Tag;
 
 beforeEach(function () {
@@ -223,10 +223,10 @@ test('cannot update tag to duplicate another tags name', function () {
         ->assertJsonValidationErrors(['name']);
 });
 
-test('cannot update tag that has attached posts', function () {
+test('cannot update tag that has attached articles', function () {
     $tag = Tag::factory()->create(['name' => 'Laravel']);
-    $post = Post::factory()->create(['author_id' => $this->author->id]);
-    $post->tags()->attach($tag);
+    $article = Article::factory()->create(['author_id' => $this->author->id]);
+    $article->tags()->attach($tag);
 
     $response = $this->putJson("/api/v1/tags/{$tag->id}", [
         'name' => 'Updated Name',
@@ -240,10 +240,10 @@ test('cannot update tag that has attached posts', function () {
     ]);
 });
 
-test('cannot delete tag that has attached posts', function () {
+test('cannot delete tag that has attached articles', function () {
     $tag = Tag::factory()->create(['name' => 'Laravel']);
-    $post = Post::factory()->create(['author_id' => $this->author->id]);
-    $post->tags()->attach($tag);
+    $article = Article::factory()->create(['author_id' => $this->author->id]);
+    $article->tags()->attach($tag);
 
     $response = $this->deleteJson("/api/v1/tags/{$tag->id}");
 

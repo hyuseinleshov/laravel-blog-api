@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Enums\SubscriptionPlan;
+use App\Models\Article;
 use App\Models\Author;
-use App\Models\Post;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\PaymentIntent;
 use Stripe\Stripe;
@@ -47,15 +47,15 @@ class StripeService
         }
     }
 
-    public function createBoostPaymentIntent(Post $post): object
+    public function createBoostPaymentIntent(Article $article): object
     {
-        $author = $post->author;
+        $author = $article->author;
 
         return PaymentIntent::create([
             'amount' => config('services.stripe.prices.boost_price'),
             'currency' => 'eur',
             'metadata' => [
-                'post_id' => $post->id,
+                'article_id' => $article->id,
                 'author_id' => $author->id,
                 'type' => 'boost',
             ],

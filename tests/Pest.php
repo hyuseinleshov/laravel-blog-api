@@ -41,11 +41,11 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function validPostData(array $overrides = []): array
+function validArticleData(array $overrides = []): array
 {
     return array_merge([
-        'title' => 'Test Post Title',
+        'title' => 'Test Article Title',
         'content' => str_repeat('a', 200),
-        'status' => \App\Enums\PostStatus::PUBLISHED->value,
+        'status' => \App\Enums\ArticleStatus::PUBLISHED->value,
     ], $overrides);
 }
