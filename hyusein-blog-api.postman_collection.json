@@ -487,6 +487,493 @@
 				}
 			],
 			"description": "Subscription management endpoints for plan checkout and status checking.\n\n**Flow:**\n1. **Checkout Basic/Medium/Premium** - Purchase or change subscription plan\n2. **Get Active Subscription** - View current subscription details\n\n**Subscription Plans:**\n- **Basic**: €0 (free), 2 articles/month, never expires\n- **Medium**: €2 (200 cents), 10 articles/month, valid for 1 month\n- **Premium**: €10 (1000 cents), unlimited articles, valid for 1 month\n\n**Payment Flow:**\n- **Basic plan**: Activates immediately (status: \"active\")\n- **Paid plans**: Creates PENDING subscription and returns `client_secret` for Stripe payment confirmation\n- **Webhook activation**: After successful payment, Stripe webhook activates the subscription (PENDING → ACTIVE)\n\n**Testing Paid Plans:**\nFor Medium and Premium plans, use Stripe test card:\n- Card: `4242 4242 4242 4242`\n- Expiry: Any future date (e.g., 12/34)\n- CVC: Any 3 digits (e.g., 123)\n- ZIP: Any 5 digits (e.g., 12345)\n\nNote: The actual payment confirmation happens in a frontend application using Stripe.js. This collection demonstrates the checkout API flow up to the point of receiving the `client_secret`."
+		},
+		{
+			"name": "Articles",
+			"item": [
+				{
+					"name": "Create Article (Draft)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('article_id', response.data.id);",
+									"    console.log('Article created with ID:', response.data.id);",
+									"    console.log('Title:', response.data.title);",
+									"    console.log('Status:', response.data.status);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Getting Started with Laravel in 2026\",\n    \"content\": \"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\",\n    \"status\": \"draft\",\n    \"tag_ids\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/articles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles"
+							]
+						},
+						"description": "Create a new article in draft status.\n\n**Authentication:** Required (Bearer token)\n\n**Request:**\n- `title`: Article title (min: 10 chars, max: 255 chars) (required)\n- `content`: Article content (min: 200 chars) (required)\n- `status`: \"draft\" | \"published\" | \"archived\" (required)\n- `tag_ids`: Array of tag IDs to associate with article (optional)\n\n**Response (201):**\n- Returns complete article object with ID, title, content, status, timestamps\n- Article is automatically assigned to the authenticated author\n- `is_boosted`: false by default\n\n**Publishing Limits:**\n- **Draft articles**: Unlimited, do NOT count toward monthly limit\n- **Published articles**: Subject to subscription plan limits:\n  - Basic: 2 articles/month\n  - Medium: 10 articles/month\n  - Premium: Unlimited\n\n**Error (403):**\n- When creating published article exceeds monthly limit\n- Message includes current plan and limit details\n\n**Use Case:**\n- Create article as draft first (unlimited)\n- Review and edit\n- Publish when ready (counts toward limit)\n\n**Note:** This request creates a draft, which does NOT count toward publishing limits. See \"Create Article (Published)\" for limit enforcement."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Article (Published - First)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    console.log('Published article created with ID:', response.data.id);",
+									"    console.log('Title:', response.data.title);",
+									"    console.log('Status:', response.data.status);",
+									"    console.log('Published Count: 1 / 2 (Basic plan limit)');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Top 10 Laravel Best Practices for Clean Code\",\n    \"content\": \"Laravel is a powerful PHP framework that enables developers to build robust web applications with elegant syntax. In this comprehensive guide, we'll explore the top 10 best practices that every Laravel developer should follow to write clean, maintainable, and efficient code. From proper use of service containers to implementing repository patterns, these practices will elevate your Laravel development skills.\",\n    \"status\": \"published\",\n    \"tag_ids\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/articles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles"
+							]
+						},
+						"description": "Create first published article (should succeed for Basic plan).\n\n**Authentication:** Required (Bearer token)\n\n**Expected Behavior:**\n- ✅ Should succeed (1 of 2 articles for Basic plan)\n- Returns 201 Created with article data\n- Article is immediately visible in public listings\n\n**Publishing Limit Check:**\n- Validated against current calendar month\n- Basic plan: 2 articles/month\n- This is the first published article\n\n**Important:**\n- Creating published articles checks the limit immediately\n- Draft articles do NOT count toward the limit\n- Editing already-published articles does NOT recheck the limit\n- Only draft→published transitions check the limit\n\n**Use Case:**\n- Demonstrate successful publishing within limit\n- First article of the month for author with Basic subscription"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Article (Published - Second)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    console.log('Published article created with ID:', response.data.id);",
+									"    console.log('Title:', response.data.title);",
+									"    console.log('Status:', response.data.status);",
+									"    console.log('Published Count: 2 / 2 (Basic plan limit REACHED)');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Understanding Laravel Service Container and Dependency Injection\",\n    \"content\": \"The Laravel service container is a powerful tool for managing class dependencies and performing dependency injection. This article dives deep into how the service container works, when to use it, and best practices for binding services. We'll explore real-world examples and learn how to leverage this feature to build more maintainable applications with loosely coupled components.\",\n    \"status\": \"published\",\n    \"tag_ids\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/articles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles"
+							]
+						},
+						"description": "Create second published article (should succeed for Basic plan).\n\n**Authentication:** Required (Bearer token)\n\n**Expected Behavior:**\n- ✅ Should succeed (2 of 2 articles for Basic plan)\n- Returns 201 Created with article data\n- Limit is now reached for the current month\n\n**Publishing Limit Check:**\n- Basic plan: 2 articles/month\n- This is the second (final) published article\n- Next published article will be rejected\n\n**Use Case:**\n- Demonstrate reaching the publishing limit\n- Last successful publication for Basic plan in current month"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Article (Published - Limit Exceeded)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 403) {",
+									"    const response = pm.response.json();",
+									"    console.log('Publishing limit exceeded (expected)');",
+									"    console.log('Error message:', response.message);",
+									"    console.log('Current limit:', response.current_limit);",
+									"    console.log('Articles published:', response.articles_published_this_month);",
+									"    console.log('');",
+									"    console.log('✅ This error is EXPECTED and demonstrates the limit enforcement.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Advanced Laravel Queue Optimization Techniques\",\n    \"content\": \"Queue processing is essential for building scalable Laravel applications. In this article, we'll explore advanced techniques for optimizing queue performance, handling failed jobs, implementing job batching, and monitoring queue health. Learn how to process thousands of jobs efficiently while maintaining application responsiveness and reliability through proper queue configuration and worker management.\",\n    \"status\": \"published\",\n    \"tag_ids\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/articles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles"
+							]
+						},
+						"description": "Attempt to create third published article (should fail for Basic plan).\n\n**Authentication:** Required (Bearer token)\n\n**Expected Behavior:**\n- ❌ Should FAIL with 403 Forbidden\n- Publishing limit exceeded for Basic plan\n\n**Error Response (403):**\n```json\n{\n    \"message\": \"You have exceeded your monthly publishing limit. Your current plan (basic) allows 2 articles per month. You have already published 2 articles this month. Please upgrade your subscription to publish more articles.\",\n    \"current_plan\": \"basic\",\n    \"current_limit\": 2,\n    \"articles_published_this_month\": 2\n}\n```\n\n**Publishing Limit Enforcement:**\n- Basic plan: 2 articles/month (limit reached)\n- Error message includes:\n  - Current plan name\n  - Monthly limit\n  - Number of articles already published this month\n  - Suggestion to upgrade\n\n**Solutions:**\n1. Wait until next calendar month (limits reset)\n2. Upgrade to Medium plan (10 articles/month)\n3. Upgrade to Premium plan (unlimited articles)\n4. Create as draft instead (unlimited drafts)\n\n**Use Case:**\n- Demonstrate publishing limit enforcement\n- Show clear error messaging to guide users\n- Validate subscription-based access control\n\n**Note:** This error is EXPECTED and demonstrates proper limit enforcement. Drafts are unlimited and can still be created."
+					},
+					"response": []
+				},
+				{
+					"name": "List Articles (Public)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/articles?include=author,tags&filter[status]=published&sort=-created_at",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles"
+							],
+							"query": [
+								{
+									"key": "include",
+									"value": "author,tags",
+									"description": "Eager load author and tags relationships"
+								},
+								{
+									"key": "filter[status]",
+									"value": "published",
+									"description": "Filter by article status"
+								},
+								{
+									"key": "sort",
+									"value": "-created_at",
+									"description": "Sort by creation date descending"
+								}
+							]
+						},
+						"description": "List all articles (public endpoint, no authentication required).\n\n**Authentication:** Not required (public endpoint)\n\n**Response (200):**\n- Returns array of articles with:\n  - `id`, `title`, `content`, `status`\n  - `is_boosted`: Boolean indicating boost status\n  - `author`: Author details (if included)\n  - `tags`: Associated tags (if included)\n  - Timestamps: `created_at`, `updated_at`, `published_at`\n\n**Query Parameters (Spatie Query Builder):**\n\n**Filters:**\n- `filter[status]=published|draft|archived` - Filter by article status\n- `filter[author_id]=1` - Filter by specific author\n- `filter[title]=Laravel` - Partial match on title\n- `filter[boosted]=true|false` - Filter by boost status\n\n**Sorts:**\n- `sort=title` - Sort by title ascending\n- `sort=-created_at` - Sort by creation date descending (default)\n- Default ordering: **Boosted → Premium → Medium → Basic → Date**\n- Boosted articles always appear first, regardless of author's plan\n- Then sorted by subscription plan tier (Premium > Medium > Basic)\n- Finally by creation date for articles in same tier\n\n**Includes:**\n- `include=author` - Eager load author relationship\n- `include=tags` - Eager load tags relationship\n- `include=author,tags` - Load multiple relationships\n\n**Article Ordering Examples:**\n1. Boosted article by Basic author - appears FIRST\n2. Regular article by Premium author - appears SECOND\n3. Regular article by Medium author - appears THIRD\n4. Regular article by Basic author - appears FOURTH\n\n**Use Cases:**\n- Public article listing page\n- Search and filter articles\n- Demonstrate plan-based ordering\n- Verify boosted articles appear first\n\n**Note:** This endpoint is public and does not require authentication. All published articles are visible to everyone."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Single Article",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/articles/{{article_id}}?include=author,tags",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles",
+								"{{article_id}}"
+							],
+							"query": [
+								{
+									"key": "include",
+									"value": "author,tags",
+									"description": "Eager load relationships"
+								}
+							]
+						},
+						"description": "Retrieve a single article by ID (public endpoint).\n\n**Authentication:** Not required (public endpoint)\n\n**Response (200):**\n- Returns complete article object:\n  - `id`, `title`, `content`, `status`\n  - `is_boosted`: Boolean indicating if article is boosted\n  - `author`: Author details (if included)\n  - `tags`: Associated tags (if included)\n  - Timestamps: `created_at`, `updated_at`, `published_at`\n\n**Response (404):**\n- Article not found\n\n**Query Parameters:**\n- `include=author,tags` - Eager load relationships\n\n**Use Cases:**\n- Display article detail page\n- Fetch single article for editing\n- Verify article creation\n\n**Note:** Uses `{{article_id}}` variable captured from article creation."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Article",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}",
+									"if (!pm.collectionVariables.get('article_id')) {",
+									"    console.error('No article_id found. Please create an article first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 204) {",
+									"    console.log('Article updated successfully (204 No Content)');",
+									"    console.log('Use \"Get Single Article\" to view updated content.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Getting Started with Laravel in 2026 (Updated)\",\n    \"content\": \"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. This article has been updated with new information.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/articles/{{article_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles",
+								"{{article_id}}"
+							]
+						},
+						"description": "Update an existing article (author only).\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Only the article's author can update it\n\n**Request:**\n- `title`: Updated title (optional, min: 10, max: 255)\n- `content`: Updated content (optional, min: 200)\n- `status`: Updated status (optional: \"draft\"|\"published\"|\"archived\")\n- `tag_ids`: Updated tag associations (optional)\n- All fields are optional - only send fields you want to update\n\n**Response (204):**\n- No Content - Update successful\n- To view updated article, use \"Get Single Article\" request\n\n**Response (403):**\n- Forbidden - User is not the article author\n\n**Response (404):**\n- Article not found\n\n**Publishing Limit Behavior:**\n- ✅ Editing already-published articles does NOT recheck limit\n- ✅ Changing draft→published status DOES check limit\n- ✅ Changing published→draft status does NOT check limit\n\n**Use Cases:**\n- Fix typos or update content\n- Change article status (draft/published/archived)\n- Update tag associations\n- Publish a draft (subject to limit check)\n\n**Note:** Returns 204 No Content on success. Use GET request to view updated data."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Article",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}",
+									"if (!pm.collectionVariables.get('article_id')) {",
+									"    console.error('No article_id found. Please create an article first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 204) {",
+									"    console.log('Article deleted successfully (204 No Content)');",
+									"    console.log('Article ID ' + pm.collectionVariables.get('article_id') + ' has been removed.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/articles/{{article_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"articles",
+								"{{article_id}}"
+							]
+						},
+						"description": "Delete an article (author only).\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Only the article's author can delete it\n\n**Response (204):**\n- No Content - Deletion successful\n- Article is permanently removed from database\n\n**Response (403):**\n- Forbidden - User is not the article author\n\n**Response (404):**\n- Article not found\n\n**Use Cases:**\n- Remove unwanted articles\n- Clean up draft articles\n- Delete published articles\n\n**Note:** Deletion is permanent and cannot be undone. Returns 204 No Content on success."
+					},
+					"response": []
+				}
+			],
+			"description": "Article management endpoints for CRUD operations and public listing.\n\n**Flow:**\n1. **Create Draft** - Create article without affecting publishing limit (unlimited drafts)\n2. **Create Published (First)** - Create first published article (1/2 for Basic plan)\n3. **Create Published (Second)** - Create second published article (2/2 for Basic plan - limit reached)\n4. **Create Published (Limit Exceeded)** - Attempt to exceed limit (returns 403 error)\n5. **List Articles** - View all published articles with plan-based ordering\n6. **Get Single Article** - Retrieve specific article details\n7. **Update Article** - Modify article content or status (author only)\n8. **Delete Article** - Remove article permanently (author only)\n\n**Publishing Limits:**\n- **Basic**: 2 articles/month\n- **Medium**: 10 articles/month\n- **Premium**: Unlimited\n\n**Limit Enforcement Rules:**\n- ✅ Creating published articles checks limit\n- ✅ Publishing a draft (draft→published) checks limit\n- ✅ Editing already-published articles does NOT recheck limit\n- ✅ Draft articles are unlimited (do not count toward limit)\n- ✅ Limits are per calendar month (reset on 1st of each month)\n\n**Article Ordering in Listings:**\nDefault ordering prioritizes boosted articles and subscription tiers:\n1. **Boosted articles** - Always appear first (regardless of author's plan)\n2. **Premium author articles** - Second priority\n3. **Medium author articles** - Third priority\n4. **Basic author articles** - Fourth priority\n5. **Creation date** - Within each tier, sorted by date\n\n**Authorization:**\n- **Public endpoints**: List Articles, Get Single Article (no auth required)\n- **Protected endpoints**: Create, Update, Delete (requires auth)\n- **Author-only**: Only article owner can update or delete\n\n**Update/Delete Response:**\nBoth update and delete operations return `204 No Content` on success. To view updated data, make a separate GET request."
 		}
 	],
 	"variable": [
