@@ -214,6 +214,279 @@
 				}
 			],
 			"description": "Authentication endpoints for author registration, login, and session management.\n\n**Flow:**\n1. **Register Author** - Create new account (auto-assigns Basic subscription)\n2. **Login** - Get authentication token (captured automatically)\n3. **Get Current User** - Verify authentication and get profile\n4. **Logout** - Revoke token and end session\n\n**Rate Limiting:** All auth endpoints are limited to 5 requests per minute to prevent brute force attacks.\n\n**Token Management:** The authentication token is automatically captured from the Login response and applied to all subsequent authenticated requests via the `{{auth_token}}` variable."
+		},
+		{
+			"name": "Subscriptions",
+			"item": [
+				{
+					"name": "Checkout Basic Plan",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('subscription_id', response.subscription_id);",
+									"    console.log('Basic subscription activated with ID:', response.subscription_id);",
+									"    console.log('Plan:', response.plan);",
+									"    console.log('Status:', response.status);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan\": \"basic\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscriptions/checkout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"subscriptions",
+								"checkout"
+							]
+						},
+						"description": "Checkout Basic subscription plan (free tier).\n\n**Request:**\n- `plan`: \"basic\" (required)\n\n**Response (201):**\n- `subscription_id`: ID of the created subscription\n- `plan`: \"basic\"\n- `status`: \"active\" (immediately activated)\n\n**Plan Details:**\n- Price: €0 (free)\n- Publishing Limit: 2 articles per month\n- Validity: Unlimited (never expires)\n\n**Behavior:**\n- Basic plan activates immediately\n- No payment required\n- Auto-assigned on registration\n- Previous subscriptions are automatically expired\n\n**Use Case:**\n- Downgrade from paid plan\n- Re-activate after cancellation\n- Test subscription system without payment"
+					},
+					"response": []
+				},
+				{
+					"name": "Checkout Medium Plan",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('subscription_id', response.subscription_id);",
+									"    pm.collectionVariables.set('client_secret', response.client_secret);",
+									"    console.log('Medium subscription created with ID:', response.subscription_id);",
+									"    console.log('Plan:', response.plan);",
+									"    console.log('Status:', response.status);",
+									"    console.log('Client Secret:', response.client_secret);",
+									"    console.log('');",
+									"    console.log('NEXT STEP: Use this client_secret with Stripe.js to confirm payment.');",
+									"    console.log('Subscription will activate after payment succeeds via webhook.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan\": \"medium\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscriptions/checkout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"subscriptions",
+								"checkout"
+							]
+						},
+						"description": "Checkout Medium subscription plan (paid tier).\n\n**Request:**\n- `plan`: \"medium\" (required)\n\n**Response (201):**\n- `subscription_id`: ID of the created subscription\n- `plan`: \"medium\"\n- `status`: \"pending\" (awaiting payment confirmation)\n- `client_secret`: Stripe PaymentIntent client secret for payment confirmation\n\n**Plan Details:**\n- Price: €2 (200 cents)\n- Publishing Limit: 10 articles per month\n- Validity: 1 month from payment confirmation\n\n**Payment Flow:**\n1. API creates subscription in PENDING status\n2. API creates Stripe PaymentIntent and returns `client_secret`\n3. Frontend uses Stripe.js to confirm payment with test card:\n   - Card: `4242 4242 4242 4242`\n   - Expiry: Any future date (e.g., 12/34)\n   - CVC: Any 3 digits (e.g., 123)\n   - ZIP: Any 5 digits (e.g., 12345)\n4. Stripe webhook confirms payment and activates subscription (PENDING → ACTIVE)\n5. Subscription becomes valid for 1 month\n\n**Note:** In this collection, we're only testing the checkout endpoint. The payment confirmation would happen in a frontend application using Stripe.js. For testing purposes, you can manually trigger the webhook or use Stripe CLI."
+					},
+					"response": []
+				},
+				{
+					"name": "Checkout Premium Plan",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('subscription_id', response.subscription_id);",
+									"    pm.collectionVariables.set('client_secret', response.client_secret);",
+									"    console.log('Premium subscription created with ID:', response.subscription_id);",
+									"    console.log('Plan:', response.plan);",
+									"    console.log('Status:', response.status);",
+									"    console.log('Client Secret:', response.client_secret);",
+									"    console.log('');",
+									"    console.log('NEXT STEP: Use this client_secret with Stripe.js to confirm payment.');",
+									"    console.log('Subscription will activate after payment succeeds via webhook.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"plan\": \"premium\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscriptions/checkout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"subscriptions",
+								"checkout"
+							]
+						},
+						"description": "Checkout Premium subscription plan (paid tier).\n\n**Request:**\n- `plan`: \"premium\" (required)\n\n**Response (201):**\n- `subscription_id`: ID of the created subscription\n- `plan`: \"premium\"\n- `status`: \"pending\" (awaiting payment confirmation)\n- `client_secret`: Stripe PaymentIntent client secret for payment confirmation\n\n**Plan Details:**\n- Price: €10 (1000 cents)\n- Publishing Limit: Unlimited articles\n- Validity: 1 month from payment confirmation\n\n**Payment Flow:**\n1. API creates subscription in PENDING status\n2. API creates Stripe PaymentIntent and returns `client_secret`\n3. Frontend uses Stripe.js to confirm payment with test card:\n   - Card: `4242 4242 4242 4242`\n   - Expiry: Any future date (e.g., 12/34)\n   - CVC: Any 3 digits (e.g., 123)\n   - ZIP: Any 5 digits (e.g., 12345)\n4. Stripe webhook confirms payment and activates subscription (PENDING → ACTIVE)\n5. Subscription becomes valid for 1 month\n\n**Note:** In this collection, we're only testing the checkout endpoint. The payment confirmation would happen in a frontend application using Stripe.js. For testing purposes, you can manually trigger the webhook or use Stripe CLI."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Active Subscription",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('auth_token')) {",
+									"    console.error('No auth token found. Please run Login request first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/subscriptions/current",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"subscriptions",
+								"current"
+							]
+						},
+						"description": "Retrieve the current author's active subscription.\n\n**Authentication:** Required (Bearer token)\n\n**Response (200):**\n- `data.id`: Subscription ID\n- `data.plan`: \"basic\" | \"medium\" | \"premium\"\n- `data.status`: \"active\" | \"pending\" | \"expired\" | \"cancelled\"\n- `data.valid_from`: ISO 8601 timestamp when subscription started\n- `data.valid_to`: ISO 8601 timestamp when subscription expires (null for Basic plan)\n\n**Response (404):**\n- `message`: \"No active subscription found\"\n- This can occur if:\n  - Author has never had a subscription (shouldn't happen - Basic is auto-assigned on registration)\n  - All subscriptions are expired or cancelled\n\n**Use Cases:**\n- Verify subscription after checkout\n- Check subscription status before creating articles\n- Display current plan in user dashboard\n- Determine available features based on plan\n\n**Plan Limits:**\n- Basic: 2 articles/month, never expires\n- Medium: 10 articles/month, expires after 1 month\n- Premium: Unlimited articles, expires after 1 month"
+					},
+					"response": []
+				}
+			],
+			"description": "Subscription management endpoints for plan checkout and status checking.\n\n**Flow:**\n1. **Checkout Basic/Medium/Premium** - Purchase or change subscription plan\n2. **Get Active Subscription** - View current subscription details\n\n**Subscription Plans:**\n- **Basic**: €0 (free), 2 articles/month, never expires\n- **Medium**: €2 (200 cents), 10 articles/month, valid for 1 month\n- **Premium**: €10 (1000 cents), unlimited articles, valid for 1 month\n\n**Payment Flow:**\n- **Basic plan**: Activates immediately (status: \"active\")\n- **Paid plans**: Creates PENDING subscription and returns `client_secret` for Stripe payment confirmation\n- **Webhook activation**: After successful payment, Stripe webhook activates the subscription (PENDING → ACTIVE)\n\n**Testing Paid Plans:**\nFor Medium and Premium plans, use Stripe test card:\n- Card: `4242 4242 4242 4242`\n- Expiry: Any future date (e.g., 12/34)\n- CVC: Any 3 digits (e.g., 123)\n- ZIP: Any 5 digits (e.g., 12345)\n\nNote: The actual payment confirmation happens in a frontend application using Stripe.js. This collection demonstrates the checkout API flow up to the point of receiving the `client_secret`."
 		}
 	],
 	"variable": [
@@ -239,6 +512,11 @@
 		},
 		{
 			"key": "subscription_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "client_secret",
 			"value": "",
 			"type": "string"
 		}
