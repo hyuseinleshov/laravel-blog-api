@@ -52,7 +52,7 @@ class StripeService
         $author = $post->author;
 
         return PaymentIntent::create([
-            'amount' => config('services.stripe.boost_price'),
+            'amount' => config('services.stripe.prices.boost_price'),
             'currency' => 'eur',
             'metadata' => [
                 'post_id' => $post->id,
