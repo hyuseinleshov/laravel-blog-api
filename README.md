@@ -8,7 +8,7 @@ This project demonstrates Laravel development practices including clean architec
 - **Subscription Plans**: Three-tier subscription system (Basic, Medium, Premium) with monthly limits
 - **Stripe Payment Integration**: Secure payment processing using Stripe sandbox for paid subscriptions
 - **Webhook Processing**: Automated subscription activation via Stripe payment_intent.succeeded webhooks
-- **Authorization Policies**: Role-based access control for posts and tags
+- **Authorization Policies**: Policy-based authorization for posts and tags
 - **Posts Management**: Full CRUD operations with status workflow (draft, published, archived)
 - **Tags System**: Many-to-many relationship with posts
 - **User Attribution**: Posts are associated with authors
@@ -16,7 +16,7 @@ This project demonstrates Laravel development practices including clean architec
 - **Publishing Limits**: Enforces monthly post limits based on subscription plan (Basic: 2, Medium: 10, Premium: Unlimited), resets each calendar month, with a 403 Forbidden error response for violations.
 - **Post Boost**: Authors can pay €1 to boost their post to the top of listings via Stripe payment
 - **Subscription-Based Ordering**: Public post listings prioritize boosted posts, then Premium, Medium, and Basic authors
-- **Rate Limiting**: Throttled authentication endpoints (5 requests per minute)
+- **Rate Limiting**: Throttled registration and login endpoints (5 requests per minute)
 - **Admin Panel**: Filament-powered UI for managing posts, tags, subscriptions, and transactions
 - **Comprehensive Testing**: Feature tests with Pest framework covering all subscription flows
 - **API Versioning**: Structured v1 API routes
@@ -44,7 +44,7 @@ This project demonstrates Laravel development practices including clean architec
 **Query Builder Pattern:**
 Listing endpoints support filtering, sorting, and relationship loading via Spatie Query Builder.
 ```http
-GET /api/v1/posts?filter[status]=published&include=author,tags&sort=-created_at
+GET /api/v1/articles?filter[status]=published&include=author,tags&sort=-created_at
 ```
 
 ## Installation
@@ -97,10 +97,10 @@ The API uses **Laravel Sanctum** for token-based authentication. Authentication 
 - `POST /api/v1/auth/logout` - Logout and revoke current token
 - `GET /api/v1/auth/me` - Get authenticated author details
 
-**Rate Limiting:** Authentication endpoints are limited to 5 requests per minute to prevent brute force attacks.
+**Rate Limiting:** Registration and login endpoints are limited to 5 requests per minute to prevent brute force attacks.
 
 **Authorization Policies:**
-- **Posts**: Authors can only update/delete their own posts ([PostPolicy](app/Policies/PostPolicy.php))
+- **Posts**: Authors can only update/delete their own posts ([ArticlePolicy](app/Policies/ArticlePolicy.php))
 - **Tags**: Tags can only be updated/deleted if they have no associated posts ([TagPolicy](app/Policies/TagPolicy.php))
 
 ### Subscription Endpoints
@@ -124,12 +124,12 @@ Basic plan is free and activated immediately. Paid plans (Medium/Premium) return
 ### Resource Endpoints
 
 **Posts:**
-- `GET /api/v1/posts` - List all posts (public, ordered by: boosted → Premium → Medium → Basic → date)
-- `GET /api/v1/posts/{id}` - Get single post (public)
-- `POST /api/v1/posts` - Create post (authenticated, auto-assigned to author, subject to plan limits)
-- `PUT /api/v1/posts/{id}` - Update post (authenticated, author only, publishing drafts subject to limits)
-- `DELETE /api/v1/posts/{id}` - Delete post (authenticated, author only)
-- `POST /api/v1/posts/{post}/boost` - Boost post to top of listings (authenticated, author only, €1 Stripe payment)
+- `GET /api/v1/articles` - List all posts (public, ordered by: boosted → Premium → Medium → Basic → date)
+- `GET /api/v1/articles/{id}` - Get single post (public)
+- `POST /api/v1/articles` - Create post (authenticated, auto-assigned to author, subject to plan limits)
+- `PUT /api/v1/articles/{id}` - Update post (authenticated, author only, publishing drafts subject to limits)
+- `DELETE /api/v1/articles/{id}` - Delete post (authenticated, author only)
+- `POST /api/v1/articles/{article}/boost` - Boost post to top of listings (authenticated, author only, €1 Stripe payment)
 
 **Publishing Limits:**
 Posts are subject to monthly publishing limits based on subscription plans (resets each calendar month):
@@ -148,16 +148,18 @@ Posts are subject to monthly publishing limits based on subscription plans (rese
 ### Security Features
 
 - **Password Security**: Bcrypt hashing
-- **Token Authentication**: Stateless, prevents session hijacking
+- **Token Authentication**: Sanctum personal access tokens
 - **Account Status**: Inactive accounts cannot login
-- **Rate Limiting**: 5 requests/minute on auth endpoints
+- **Rate Limiting**: 5 requests/minute on registration and login endpoints
 - **Policy Authorization**: Prevents unauthorized resource access
 - **Auto-assignment**: `author_id` prevents privilege escalation
-- **Token Revocation**: Immediate access termination on logout
+- **Token Revocation**: Revokes the current access token on logout
 
 ## Postman Collection
 
 A comprehensive Postman collection is included for interactive API testing and demonstration of all features. The collection covers the complete user journey from registration to article boosting.
+
+> **Collection limitations:** "Fresh Migration" and "Direct DB" requests are placeholders, and simulated webhook signatures cannot activate paid features. Follow the terminal and signed webhook instructions below.
 
 ### Import Collection
 
@@ -170,7 +172,7 @@ A comprehensive Postman collection is included for interactive API testing and d
 The collection is organized into 8 folders covering complete API workflows:
 
 **1. Setup & Cleanup** (1 request)
-- Fresh Migration - Reset database to clean state (`migrate:fresh --seed`)
+- Fresh Migration - Instructional placeholder; run `php artisan migrate:fresh --seed` in a terminal to reset the local test database
 
 **2. Auth** (4 requests)
 - Register Author - Create new account (auto-assigns Basic subscription)
@@ -210,10 +212,9 @@ The collection is organized into 8 folders covering complete API workflows:
 - List Articles (Verify Boost Order) - Confirm boosted article appears first
 
 **8. Workarounds** (4 requests)
-- Manual webhook simulation for subscription activation
-- Manual webhook simulation for boost activation
-- Direct database updates for testing without Stripe setup
-- Shortcuts for local development and testing
+- Example subscription and boost webhook payloads; the supplied simulated signatures do not pass signature verification
+- Direct DB requests are instructional placeholders, not database update endpoints
+- Use signed Stripe CLI events below for webhook testing
 
 ### Automated Features
 
@@ -247,15 +248,15 @@ Execute folders: Auth → Subscriptions → Articles
 6. List Articles → verify articles appear in correct order
 
 **Strategy B: Multi-Author Flow (Complete Testing)**
-Execute folders: Setup & Cleanup → Multi-Author Demo → Tags → Workarounds
-1. Fresh Migration → clean database
+Use Multi-Author Demo → Tags, with the manual setup and signed webhook steps below:
+1. Run `php artisan migrate:fresh --seed` in a terminal to reset the local test database
 2. Register 3 authors (Basic, Medium, Premium plans)
 3. Checkout Medium and Premium plans → receive `client_secret` for each
-4. Activate subscriptions via Workarounds folder
+4. Activate subscriptions using signed Stripe CLI events (see Stripe Testing)
 5. Create article from each author
 6. List Articles → verify tier ordering (Premium → Medium → Basic)
 7. Boost Basic author's article
-8. Activate boost via Workarounds folder
+8. Activate boost using a signed Stripe CLI event
 9. Final verification → boosted Basic article now appears first
 
 **Testing Publishing Limits:**
@@ -269,14 +270,14 @@ Execute folders: Auth → Articles (requests 1-4)
 **Testing Subscription Upgrades:**
 1. Auth → Login → Get Active Subscription (shows Basic)
 2. Subscriptions → Checkout Medium Plan → receive `client_secret`
-3. Workarounds → Activate Subscription (simulates webhook)
+3. Send a signed subscription event using Stripe CLI (see Stripe Testing)
 4. Subscriptions → Get Active Subscription → now shows Medium plan
 5. Can now publish up to 10 articles/month
 
 **Testing Article Boost:**
 1. Auth → Login, Articles → Create Published Article
 2. Boost → Boost Article → receive `client_secret`
-3. Workarounds → Activate Boost (simulates webhook)
+3. Send a signed boost event using Stripe CLI (see Stripe Testing)
 4. Articles → List Articles → boosted article appears first, above Premium articles
 
 ### Stripe Testing
@@ -292,7 +293,7 @@ ZIP: Any 5 digits (e.g., 12345)
 
 **Webhook Activation Methods:**
 
-Paid features (Medium/Premium subscriptions, article boost) require webhook activation. Choose one:
+Paid features (Medium/Premium subscriptions, article boost) require a signature-verified webhook for payment activation.
 
 **Method 1: Stripe CLI (Recommended)**
 ```bash
@@ -318,22 +319,21 @@ stripe trigger payment_intent.succeeded \
   --add payment_intent:metadata.type=boost
 ```
 
-**Important:** Replace `YOUR_AUTHOR_ID` and `YOUR_ARTICLE_ID` with actual IDs from your API responses.
+**Important:** Replace `YOUR_AUTHOR_ID` and `YOUR_ARTICLE_ID` with actual IDs from your API responses. `stripe trigger` creates a separate test PaymentIntent; it tests webhook handling, not confirmation of the original checkout payment. To test that complete flow, confirm the original `client_secret` using Stripe.js in test mode.
 
 **How it Works:**
 1. After calling `/subscriptions/checkout` or `/articles/{id}/boost`, the API creates a pending subscription/boost and returns a `client_secret`
 2. The Stripe CLI creates a test PaymentIntent and triggers the `payment_intent.succeeded` event
 3. The metadata you provide (`author_id`, `plan`, `type`) is included in the webhook payload
 4. Your Laravel webhook handler receives the event, validates the signature, and activates the subscription/boost
-5. Database is updated: subscription status changes from `pending` to `active`, or article receives `boosted_at` timestamp
+5. Database is updated: a matching pending subscription becomes active, a new active subscription is created for a new PaymentIntent, or the article receives a `boosted_at` timestamp
 6. Transaction record is created for audit trail
 
-**Method 2: Workarounds Folder (Quick Testing)**
-- Use "Simulate Webhook - Activate Subscription" for subscriptions
-- Use "Simulate Webhook - Activate Boost" for article boosts
-- Or use "Direct DB" requests for instant activation without webhooks
+**Workarounds Folder Limitations**
+- Simulated signatures do not activate subscriptions or boosts. Use signed Stripe CLI events.
+- "Direct DB" requests point to placeholder URLs; any database changes must be performed manually in a local test database.
 
-**Method 3: Frontend Integration (Production)**
+**Frontend Integration**
 The Postman collection demonstrates the API checkout flow (receiving `client_secret`). In production, the frontend uses Stripe.js to confirm payments, which triggers real webhooks.
 
 ### Collection Variables
@@ -375,10 +375,10 @@ The collection uses the following variables:
 
 1. **Choose Your Strategy:**
    - Simple testing: Auth → Subscriptions → Articles
-   - Complete testing: Setup & Cleanup → Multi-Author Demo → Workarounds
+   - Complete testing: Multi-Author Demo with manual database setup and signed Stripe CLI events
 2. **Check Console:** View captured variables and next steps in Postman console
-3. **Use Workarounds:** Activate paid subscriptions/boosts via Workarounds folder (faster than Stripe CLI)
-4. **Fresh Start:** Run "Setup & Cleanup → Fresh Migration" to reset database between test runs
+3. **Use Signed Webhooks:** Activate paid subscriptions/boosts with Stripe CLI; simulated signatures are not accepted
+4. **Fresh Start:** Run `php artisan migrate:fresh --seed` in a terminal against your local test database between test runs
 5. **Multiple Authors:** Multi-Author Demo folder handles 3 authors automatically with numbered variables
 6. **Plan Testing:** Multi-Author Demo shows tier ordering (Premium > Medium > Basic) and boost priority
 7. **Database State:** Collection modifies database; use fresh migration to avoid duplicate email errors
